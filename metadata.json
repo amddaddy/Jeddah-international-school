@@ -1,0 +1,5 @@
+{
+  "name": "Jeddah International School - Performance Tracker",
+  "description": "A web application for Jeddah International School to input student data, calculate their average scores, and generate ranked positions based on academic performance.",
+  "requestFramePermissions": []
+}
