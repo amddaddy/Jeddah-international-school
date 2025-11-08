@@ -8,8 +8,8 @@ interface ReportSettingsProps {
     setTerm: (term: string) => void;
     session: string;
     setSession: (session: string) => void;
-    principalName: string;
-    setPrincipalName: (name: string) => void;
+    principalRemark: string;
+    setPrincipalRemark: (name: string) => void;
     totalSchoolDays: string;
     setTotalSchoolDays: (days: string) => void;
 }
@@ -18,29 +18,15 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
     nextTermBegins, setNextTermBegins,
     term, setTerm,
     session, setSession,
-    principalName, setPrincipalName,
+    principalRemark, setPrincipalRemark,
     totalSchoolDays, setTotalSchoolDays
 }) => {
-    const terms = ['First Term', 'Second Term', 'Third Term'];
     return (
         <Card title="Report Card Settings">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div>
-                    <label htmlFor="term" className="block text-sm font-medium text-slate-700 mb-1">
-                        Term
-                    </label>
-                    <select
-                        id="term"
-                        value={term}
-                        onChange={(e) => setTerm(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                    >
-                        {terms.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                </div>
-                <div>
                     <label htmlFor="session" className="block text-sm font-medium text-slate-700 mb-1">
-                        Session (e.g., 2023/2024)
+                        Session (e.g., 2024/2025)
                     </label>
                     <input
                         type="text"
@@ -51,8 +37,23 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
                     />
                 </div>
                  <div>
+                    <label htmlFor="term" className="block text-sm font-medium text-slate-700 mb-1">
+                        Term
+                    </label>
+                    <select
+                        id="term"
+                        value={term}
+                        onChange={(e) => setTerm(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                    >
+                        <option value="First Term">First Term</option>
+                        <option value="Second Term">Second Term</option>
+                        <option value="Third Term">Third Term</option>
+                    </select>
+                </div>
+                <div className="md:col-span-2">
                     <label htmlFor="total-school-days" className="block text-sm font-medium text-slate-700 mb-1">
-                        Total School Days
+                        Total School Days in Session
                     </label>
                     <input
                         type="number"
@@ -60,10 +61,10 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
                         value={totalSchoolDays}
                         onChange={(e) => setTotalSchoolDays(e.target.value)}
                         className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                        placeholder="e.g., 100"
+                        placeholder="e.g., 120"
                     />
                 </div>
-                <div>
+                <div className="md:col-span-2">
                     <label htmlFor="next-term-begins" className="block text-sm font-medium text-slate-700 mb-1">
                         Next Term Begins
                     </label>
@@ -76,16 +77,16 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
                     />
                 </div>
                 <div className="md:col-span-2">
-                     <label htmlFor="principal-name" className="block text-sm font-medium text-slate-700 mb-1">
-                        Principal's Name
+                     <label htmlFor="principal-remark" className="block text-sm font-medium text-slate-700 mb-1">
+                        Principal's Remark
                     </label>
-                    <input
-                        type="text"
-                        id="principal-name"
-                        value={principalName}
-                        onChange={(e) => setPrincipalName(e.target.value)}
+                    <textarea
+                        id="principal-remark"
+                        value={principalRemark}
+                        onChange={(e) => setPrincipalRemark(e.target.value)}
                         className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                        placeholder="e.g., Dr. Amina Al-Farsi"
+                        rows={4}
+                        placeholder="Enter the principal's general remark for all students..."
                     />
                 </div>
             </div>

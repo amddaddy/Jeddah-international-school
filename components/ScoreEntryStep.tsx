@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Student, ScorePart, ScoreBreakdown } from '../types';
 import Card from './Card';
@@ -36,9 +37,12 @@ const ScoreEntryRow: React.FC<ScoreEntryRowProps> = ({ student, subject, onStude
         return true;
     };
 
-    const handleScoreChange = (part: keyof ScoreBreakdown, value: string) => {
+    const handleLocalChange = (part: keyof ScoreBreakdown, value: string) => {
         setLocalScores(prev => ({ ...prev, [part]: value }));
+    };
 
+    const handleBlur = (part: keyof ScoreBreakdown) => {
+        const value = localScores[part];
         const isValid = validateScore(part, value);
         setErrors(prev => ({ ...prev, [part]: !isValid }));
 
@@ -47,9 +51,11 @@ const ScoreEntryRow: React.FC<ScoreEntryRowProps> = ({ student, subject, onStude
             const subjectScores = newScores[subject] || { firstCA: null, secondCA: null, exam: null };
             const numericValue = value.toUpperCase() === 'ABS' ? 'ABS' : (value === '' ? null : parseInt(value, 10));
             
-            subjectScores[part] = numericValue;
-            newScores[subject] = subjectScores;
-            onStudentChange({ ...student, scores: newScores });
+            if(subjectScores[part] !== numericValue) {
+                subjectScores[part] = numericValue;
+                newScores[subject] = subjectScores;
+                onStudentChange({ ...student, scores: newScores });
+            }
         }
     };
     
@@ -68,7 +74,8 @@ const ScoreEntryRow: React.FC<ScoreEntryRowProps> = ({ student, subject, onStude
                 <input
                     type="text"
                     value={localScores.firstCA}
-                    onChange={(e) => handleScoreChange('firstCA', e.target.value)}
+                    onChange={(e) => handleLocalChange('firstCA', e.target.value)}
+                    onBlur={() => handleBlur('firstCA')}
                     placeholder="1st CA"
                     className={getInputClass(errors.firstCA)}
                 />
@@ -77,7 +84,8 @@ const ScoreEntryRow: React.FC<ScoreEntryRowProps> = ({ student, subject, onStude
                 <input
                     type="text"
                     value={localScores.secondCA}
-                    onChange={(e) => handleScoreChange('secondCA', e.target.value)}
+                    onChange={(e) => handleLocalChange('secondCA', e.target.value)}
+                    onBlur={() => handleBlur('secondCA')}
                     placeholder="2nd CA"
                     className={getInputClass(errors.secondCA)}
                 />
@@ -86,7 +94,8 @@ const ScoreEntryRow: React.FC<ScoreEntryRowProps> = ({ student, subject, onStude
                 <input
                     type="text"
                     value={localScores.exam}
-                    onChange={(e) => handleScoreChange('exam', e.target.value)}
+                    onChange={(e) => handleLocalChange('exam', e.target.value)}
+                    onBlur={() => handleBlur('exam')}
                     placeholder="Exam"
                     className={getInputClass(errors.exam)}
                 />
@@ -163,4 +172,4 @@ const ScoreEntryStep: React.FC<ScoreEntryStepProps> = ({
     );
 };
 
-export default ScoreEntryStep;
+export default React.memo(ScoreEntryStep);

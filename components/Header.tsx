@@ -1,25 +1,34 @@
 import React from 'react';
-
-// Base64 encoded school logo
-const SCHOOL_LOGO_BASE64 = 'data:image/png;base64,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p6emVlZVVVVUJCQmUlZVlZWVlZWXl5eUFBQUVFRVFRUVRUVEJCQmUlZWlpaXV1dX19fWlpSVJSUnp6emUlZVVVVWVlZVVVVXJycnp6elJSUnp6enx8fFFRUVFRUV5eXllZWVlZWVlZWVlZWUZGRkpKSkpKSkpKSkJCQm5ubm5ubm5ubmpqampqampqampqampqampqampqampqYlJSUnp6enx8fFFRUVFRUV5eXllZWVlZWVlZWVlZWUZGRkpKSkpKSkpKSkJCQm5ubm5ubm5ubmpqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampq-';
+import { SCHOOL_LOGO_BASE64 } from './assets';
+import { User } from '../types';
 
 interface HeaderProps {
-  studentsCount: number;
+  schoolName: string;
+  user: User;
+  onLogout: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ studentsCount }) => (
-  <header className="bg-white shadow-md mb-8">
+const Header: React.FC<HeaderProps> = ({ schoolName, user, onLogout }) => (
+  <header className="bg-white shadow-md">
     <div className="container mx-auto px-6 py-4 flex justify-between items-center">
       <div className="flex items-center space-x-4">
-        <img src={SCHOOL_LOGO_BASE64} alt="Jeddah International School Logo" className="h-16 w-16 object-contain" />
+        <img src={SCHOOL_LOGO_BASE64} alt={`${schoolName} Logo`} className="h-16 w-16 object-contain" />
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Jeddah International School</h1>
+          <h1 className="text-2xl font-bold text-slate-800 uppercase">{schoolName}</h1>
           <p className="text-slate-600">Student Performance Tracker</p>
         </div>
       </div>
-      <div className="text-right">
-        <div className="text-lg font-semibold text-slate-700">Total Students</div>
-        <div className="text-3xl font-bold text-sky-600">{studentsCount}</div>
+      <div className="flex items-center space-x-4">
+        <div className="text-right">
+            <p className="text-sm text-slate-600">Welcome, <span className="font-semibold">{user.name}</span></p>
+            <p className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full inline-block">{user.role}</p>
+        </div>
+        <button
+          onClick={onLogout}
+          className="bg-slate-200 text-slate-700 px-4 py-2 rounded-md hover:bg-slate-300 text-sm font-semibold"
+        >
+          Logout
+        </button>
       </div>
     </div>
   </header>

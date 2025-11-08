@@ -1,7 +1,9 @@
+
 import React, { useState } from 'react';
 import Card from './Card';
 import XIcon from './icons/XIcon';
 import PlusIcon from './icons/PlusIcon';
+import ConfirmationDialog from './ConfirmationDialog';
 
 interface SubjectsManagerProps {
   subjects: string[];
@@ -10,6 +12,7 @@ interface SubjectsManagerProps {
 
 const SubjectsManager: React.FC<SubjectsManagerProps> = ({ subjects, setSubjects }) => {
   const [newSubject, setNewSubject] = useState('');
+  const [subjectToRemove, setSubjectToRemove] = useState<string | null>(null);
 
   const handleAddSubject = () => {
     if (newSubject.trim() && !subjects.includes(newSubject.trim())) {
@@ -18,8 +21,15 @@ const SubjectsManager: React.FC<SubjectsManagerProps> = ({ subjects, setSubjects
     }
   };
 
-  const handleRemoveSubject = (subjectToRemove: string) => {
-    setSubjects(subjects.filter((subject) => subject !== subjectToRemove));
+  const handleRequestRemove = (subjectToRemove: string) => {
+    setSubjectToRemove(subjectToRemove);
+  };
+
+  const handleConfirmRemove = () => {
+    if (subjectToRemove) {
+      setSubjects(subjects.filter((subject) => subject !== subjectToRemove));
+      setSubjectToRemove(null);
+    }
   };
   
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -35,7 +45,7 @@ const SubjectsManager: React.FC<SubjectsManagerProps> = ({ subjects, setSubjects
         {subjects.map((subject) => (
           <div key={subject} className="flex items-center bg-sky-100 text-sky-800 rounded-full px-3 py-1 text-sm font-medium">
             <span>{subject}</span>
-            <button onClick={() => handleRemoveSubject(subject)} className="ml-2 text-sky-600 hover:text-sky-800">
+            <button onClick={() => handleRequestRemove(subject)} className="ml-2 text-sky-600 hover:text-sky-800">
               <XIcon />
             </button>
           </div>
@@ -57,6 +67,15 @@ const SubjectsManager: React.FC<SubjectsManagerProps> = ({ subjects, setSubjects
           <PlusIcon className="w-5 h-5 mr-1" /> Add
         </button>
       </div>
+      <ConfirmationDialog
+        isOpen={!!subjectToRemove}
+        onClose={() => setSubjectToRemove(null)}
+        onConfirm={handleConfirmRemove}
+        title="Confirm Subject Deletion"
+        message={`Are you sure you want to delete the subject "${subjectToRemove}"? All scores entered for this subject will be lost.`}
+        confirmButtonText="Delete"
+        confirmButtonVariant="danger"
+      />
     </Card>
   );
 };
