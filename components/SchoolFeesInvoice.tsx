@@ -1,7 +1,8 @@
 
 import React, { forwardRef } from 'react';
 import { Student, Invoice, ReportCardTemplateSettings } from '../types';
-import { SCHOOL_LOGO_BASE64, QR_CODE_PLACEHOLDER } from './assets';
+import { SCHOOL_LOGO_BASE64 } from './assets';
+import { generateQrCodeUrl } from '../utils';
 
 interface SchoolFeesInvoiceProps {
     student: Student | null;
@@ -16,6 +17,15 @@ const SchoolFeesInvoice = forwardRef<HTMLDivElement, SchoolFeesInvoiceProps>(({ 
     const formatCurrency = (amount: number) => `₦${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const requiredFees = invoice.feeItems.filter(f => f.type === 'required');
     const optionalFees = invoice.feeItems.filter(f => f.type === 'optional');
+
+    const qrCodeUrl = generateQrCodeUrl({
+        docType: 'School Fees Invoice',
+        invoiceNo: invoice.invoiceNo,
+        studentName: student.name,
+        date: new Date(invoice.date).toLocaleDateString(),
+        amount: invoice.totalAmount,
+        school: schoolInfo.schoolName,
+    });
 
     return (
         <div ref={ref} className="bg-white text-black p-6 font-['Arial']" style={{ width: '210mm', minHeight: '297mm' }}>
@@ -93,7 +103,7 @@ const SchoolFeesInvoice = forwardRef<HTMLDivElement, SchoolFeesInvoiceProps>(({ 
 
             <div className="flex justify-between items-center mt-6 text-xs">
                  <div className="text-center">
-                    <img src={QR_CODE_PLACEHOLDER} alt="QR Code" className="w-24 h-24 mx-auto" />
+                    <img src={qrCodeUrl} alt="QR Code" className="w-24 h-24 mx-auto" crossOrigin="anonymous" />
                     <p>Scan to verify invoice authenticity</p>
                 </div>
                  <div className="text-right">

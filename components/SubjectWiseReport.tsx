@@ -1,8 +1,7 @@
+
 import React, { forwardRef, useMemo } from 'react';
 import { Student, SubjectReportTemplateSettings } from '../types';
-import { getScoreTotal, getGradeInfo } from '../utils';
-// FIX: Corrected typo in imported constant name.
-import { SCHOOL_LOGO_BASE64 } from './assets';
+import { getScoreTotal, getGradeInfo, generateQrCodeUrl } from '../utils';
 
 interface SubjectWiseReportProps {
   students: Student[];
@@ -70,6 +69,15 @@ const SubjectWiseReport = forwardRef<HTMLDivElement, SubjectWiseReportProps>(({ 
     }, [subjectData]);
 
     if (!subject || !performanceStats) return null;
+
+    const qrCodeUrl = generateQrCodeUrl({
+        docType: 'Subject-Wise Report',
+        subject: subject,
+        class: `${classInfo.level}-${classInfo.arm}`,
+        session: classInfo.session,
+        classAverage: performanceStats.classAverage.toFixed(2),
+        school: schoolName
+    });
 
     const STUDENTS_PER_PAGE = 18;
     const studentPages = [];
@@ -156,10 +164,16 @@ const SubjectWiseReport = forwardRef<HTMLDivElement, SubjectWiseReportProps>(({ 
                         ))}
                     </div>
                 </div>}
-                 <div className="p-4 border rounded">
-                    <h3 className="text-xl font-bold text-center mb-4">General Comments</h3>
-                    <p className="text-sm leading-relaxed">{aiComment || 'Generating comment...'}</p>
-                </div>
+                 <div className="flex items-start gap-8">
+                    <div className="flex-grow p-4 border rounded">
+                        <h3 className="text-xl font-bold text-center mb-4">General Comments</h3>
+                        <p className="text-sm leading-relaxed">{aiComment || 'Generating comment...'}</p>
+                    </div>
+                    <div className="flex-shrink-0 text-center">
+                        <img src={qrCodeUrl} alt="QR Code for Verification" className="w-32 h-32" crossOrigin="anonymous" />
+                        <p className="text-xs mt-1 text-slate-600">Scan to verify document</p>
+                    </div>
+                 </div>
             </div>
         </div>
     );

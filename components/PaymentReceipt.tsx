@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react';
 import { Student, Payment, ReportCardTemplateSettings } from '../types';
-import { SCHOOL_LOGO_BASE64, QR_CODE_PLACEHOLDER } from './assets';
+import { SCHOOL_LOGO_BASE64 } from './assets';
+import { generateQrCodeUrl } from '../utils';
 
 interface PaymentReceiptProps {
     student: Student | null;
@@ -16,6 +17,15 @@ const PaymentReceipt = forwardRef<HTMLDivElement, PaymentReceiptProps>(({ studen
 
     const formatCurrency = (amount: number) => `₦${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const balance = payment.totalBill - payment.amountPaid;
+
+    const qrCodeUrl = generateQrCodeUrl({
+        docType: 'Payment Receipt',
+        receiptNo: payment.receiptNo,
+        studentName: student.name,
+        date: new Date(payment.date).toLocaleDateString(),
+        amountPaid: payment.amountPaid,
+        school: schoolInfo.schoolName,
+    });
 
     return (
         <div ref={ref} className="bg-white text-black p-4 font-sans" style={{ width: '80mm' }}>
@@ -62,7 +72,7 @@ const PaymentReceipt = forwardRef<HTMLDivElement, PaymentReceiptProps>(({ studen
              </div>
              
              <div className="text-center my-3">
-                <img src={QR_CODE_PLACEHOLDER} alt="QR Code" className="w-24 h-24 mx-auto" />
+                <img src={qrCodeUrl} alt="QR Code" className="w-24 h-24 mx-auto" crossOrigin="anonymous" />
                 <p className="text-xs">Scan to verify payment</p>
              </div>
 

@@ -1,51 +1,33 @@
-import React, { forwardRef, useMemo } from 'react';
-import { Result, Student, ScorePart, ReportCardTemplateSettings } from '../types';
+import React, { forwardRef } from 'react';
+import { Result, Student, ReportCardTemplateSettings } from '../types';
 import PhotoIcon from './icons/PhotoIcon';
-import { getScoreTotal, getGradeInfo, getOrdinalSuffix } from '../utils';
-// FIX: Corrected typo in imported constant name.
+import { getScoreTotal, getGradeInfo, getOrdinalSuffix, getSubjectsForStudent, generateQrCodeUrl } from '../utils';
 import { SCHOOL_LOGO_BASE64 } from './assets';
+import { AFFECTIVE_DOMAIN_SKILLS, PSYCHOMOTOR_SKILLS, RATING_SCALE } from './BehavioralRatingsManager';
 
 interface ResultsDisplayProps {
   results: Result[];
   studentData: Student[];
-  subjects: string[];
-  classInfo: { level: string; arm: string; term: string; session: string };
+  allSubjects: string[]; // This will contain all possible subjects for the section
+  classInfo: { level: string; arm: string; term: string; session: string; section: string };
   nextTermBegins: string;
   principalRemark: string;
   totalSchoolDays: string;
   templateSettings: ReportCardTemplateSettings;
 }
 
-const ResultsDisplay = forwardRef<HTMLDivElement, ResultsDisplayProps>(({ results, studentData, subjects, classInfo, nextTermBegins, principalRemark, totalSchoolDays, templateSettings }, ref) => {
-    
-    const subjectStats = useMemo(() => {
-        const stats: Record<string, { highest: number; lowest: number; average: number; scores: number[] }> = {};
-        subjects.forEach(subject => {
-            const scores = studentData.map(s => getScoreTotal(s.scores[subject])).filter(score => score !== null) as number[];
-            if (scores.length > 0) {
-                stats[subject] = {
-                    highest: Math.max(...scores),
-                    lowest: Math.min(...scores),
-                    average: scores.reduce((a, b) => a + b, 0) / scores.length,
-                    scores: scores.sort((a, b) => b - a)
-                };
-            } else {
-                 stats[subject] = { highest: 0, lowest: 0, average: 0, scores: [] };
-            }
-        });
-        return stats;
-    }, [studentData, subjects]);
+const getGradeColor = (grade: string) => {
+    if (grade.startsWith('A')) return 'text-green-600 font-bold';
+    if (grade.startsWith('B')) return 'text-blue-600 font-bold';
+    if (grade.startsWith('C')) return 'text-yellow-700 font-bold';
+    if (grade.startsWith('D')) return 'text-orange-600 font-bold';
+    if (grade.startsWith('E')) return 'text-amber-600 font-bold';
+    return 'text-red-600 font-bold';
+};
+
+const ResultsDisplay = forwardRef<HTMLDivElement, ResultsDisplayProps>(({ results, studentData, allSubjects, classInfo, nextTermBegins, principalRemark, totalSchoolDays, templateSettings }, ref) => {
 
     if (results.length === 0) return null;
-
-    const reportTitle = `${classInfo.term} Performance Report`;
-    const cognitiveDomainTitle = `Cognitive Domain - ${classInfo.term} Report`;
-    const summaryTitle = `${classInfo.term} Performance Summary`;
-    const gradeAnalysisTitle = `${classInfo.term} Grade Analysis`;
-    const averageScoreLabel = `${classInfo.term} Average Score`;
-    const averageGradeLabel = `${classInfo.term} Average Grade`;
-    
-    const formatScore = (score: ScorePart) => score === null ? '-' : String(score);
 
     return (
         <div ref={ref}>
@@ -53,169 +35,169 @@ const ResultsDisplay = forwardRef<HTMLDivElement, ResultsDisplayProps>(({ result
                 const student = studentData.find(s => s.id === result.studentId);
                 if (!student) return null;
 
-                const gradeAnalysis = { A1: 0, B2: 0, B3: 0, C4: 0, C5: 0, C6: 0, D7: 0, E8: 0, F9: 0 };
-                subjects.forEach(subject => {
-                    const total = getScoreTotal(student.scores[subject]);
-                    const { grade } = getGradeInfo(total);
-                    if (grade in gradeAnalysis) {
-                        gradeAnalysis[grade as keyof typeof gradeAnalysis]++;
-                    }
+                const promotionStatus = result.average >= 40 ? 'Promoted' : 'To Repeat';
+                const studentSubjects = getSubjectsForStudent(student, classInfo.section.startsWith('Junior') ? 'Junior' : 'Senior');
+                
+                const qrCodeUrl = generateQrCodeUrl({
+                    docType: 'Report Card',
+                    studentName: student.name,
+                    admissionNo: student.admissionNo,
+                    class: `${classInfo.level}-${classInfo.arm}`,
+                    session: classInfo.session,
+                    term: classInfo.term,
+                    average: result.average.toFixed(2),
+                    school: templateSettings.schoolName,
                 });
 
-                const totalMarksObtainable = subjects.length * 100;
-                const overallGradeInfo = getGradeInfo(result.average);
-                const promotionStatus = result.average >= 40 ? 'Promoted' : 'Repeated';
-                
-                const daysPresent = student.totalAttendance || 0;
-                const totalDays = parseInt(totalSchoolDays, 10) || 0;
-                const daysAbsent = totalDays > 0 ? totalDays - daysPresent : 0;
-
                 return (
-                    <div key={result.studentId} className="report-card-page relative p-4 bg-white text-black" style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', fontFamily: templateSettings.fontFamily }}>
-                       <div className="border-2 border-black p-2">
-                            <header className="text-center mb-2">
-                                <div className="flex justify-between items-center">
-                                    <img src={SCHOOL_LOGO_BASE64} alt="School Logo" className="h-20 w-20 object-contain" />
-                                    <div className="flex-grow">
-                                        <h1 className="text-3xl font-bold text-black uppercase">{templateSettings.schoolName}</h1>
-                                        <p className="text-sm font-semibold">{templateSettings.schoolAddress}</p>
-                                        <p className="text-sm font-semibold">{templateSettings.contactInfo}</p>
-                                    </div>
-                                    <div className="w-20"></div>
+                    <div key={result.studentId} className="report-card-page bg-white p-2 text-slate-800" style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', fontFamily: templateSettings.fontFamily }}>
+                        <div className="border-2 border-slate-700 p-3 min-h-[290mm] flex flex-col">
+                            <header className="flex items-center justify-between border-b-2 border-slate-700 pb-2">
+                                <img src={SCHOOL_LOGO_BASE64} alt="School Logo" className="h-24 w-24 object-contain" />
+                                <div className="text-center">
+                                    <h1 className="text-3xl font-bold uppercase text-slate-800">{templateSettings.schoolName}</h1>
+                                    <p className="text-base font-medium">{templateSettings.schoolAddress}</p>
+                                    <p className="text-base font-medium">{templateSettings.contactInfo}</p>
+                                    <h2 className="text-xl font-semibold uppercase mt-2 text-slate-700">Student's Report Sheet</h2>
                                 </div>
-                                <p className="text-lg font-bold mt-1 bg-sky-800 text-white py-1">{reportTitle}</p>
+                                <div className="w-24 h-28 flex justify-center items-center">
+                                     {student.photo ? (
+                                        <img src={student.photo} alt={student.name} className="w-24 h-28 object-cover border-2 border-slate-400" />
+                                    ) : (
+                                        <div className="w-24 h-28 bg-slate-100 flex items-center justify-center border border-slate-400">
+                                            <PhotoIcon className="w-10 h-10 text-slate-400" />
+                                        </div>
+                                    )}
+                                </div>
                             </header>
 
-                            <div className="grid grid-cols-5 gap-2 items-start mb-2 text-sm">
-                                <div className="col-span-2 space-y-0.5 text-gray-800">
-                                    <p><strong className="text-black">Name:</strong> {student.name}</p>
-                                    <p><strong className="text-black">Class:</strong> {classInfo.level} {classInfo.arm}</p>
-                                    <p><strong className="text-black">Session:</strong> {classInfo.session}</p>
-                                    <p><strong className="text-black">Term:</strong> {classInfo.term}</p>
+                            <section className="text-base my-2">
+                                <div className="grid grid-cols-12 gap-x-4 gap-y-1">
+                                    <div className="col-span-5"><strong>Student's Name:</strong> <span className="font-normal">{student.name}</span></div>
+                                    <div className="col-span-3"><strong>Admission No:</strong> <span className="font-normal">{student.admissionNo}</span></div>
+                                    <div className="col-span-4"><strong>Class:</strong> <span className="font-normal">{classInfo.level} {classInfo.arm}</span></div>
+                                    <div className="col-span-5"><strong>Section:</strong> <span className="font-normal">{classInfo.section}</span></div>
+                                    {student.stream && <div className="col-span-3"><strong>Stream:</strong> <span className="font-normal">{student.stream}</span></div>}
+                                    <div className="col-span-4"><strong>Session:</strong> <span className="font-normal">{classInfo.session}</span></div>
+                                    <div className="col-span-5"><strong>Term:</strong> <span className="font-normal">{classInfo.term}</span></div>
+                                    <div className="col-span-7"><strong>Attendance:</strong> <span className="font-normal">{student.totalAttendance} out of {totalSchoolDays} days</span></div>
                                 </div>
-                                <div className="col-span-2 space-y-0.5 text-gray-800">
-                                    <p><strong className="text-black">Gender:</strong> {student.gender}</p>
-                                    <p><strong className="text-black">Admission No:</strong> {student.admissionNo}</p>
-                                    <p><strong className="text-black">D.O.B:</strong> {student.dob}</p>
-                                    <p><strong className="text-black">Parent(s):</strong> {student.parentName}</p>
-                                </div>
-                                <div className="col-span-1 flex justify-end">
-                                {student.photo ? (
-                                    <img src={student.photo} alt={student.name} className="w-24 h-28 rounded-sm object-cover border-2 border-black" />
-                                ) : (
-                                    <div className="w-24 h-28 rounded-sm bg-slate-100 flex items-center justify-center border-2 border-black">
-                                        <PhotoIcon className="w-8 h-8 text-slate-400" />
-                                    </div>
-                                )}
-                                </div>
-                            </div>
+                            </section>
                             
-                            <div className="grid grid-cols-2 gap-2 text-sm mb-2">
-                                <div>
-                                    <p className="text-sm font-bold bg-sky-800 text-white text-center py-0.5 mb-1">Attendance Summary</p>
-                                    <table className="w-full border-collapse border border-black">
-                                        <tbody>
-                                            <tr className="bg-white"><td className="py-1 px-2 border border-black font-semibold text-black whitespace-nowrap">Days School Opened</td><td className="py-1 px-2 border border-black text-center">{totalDays > 0 ? totalDays : '-'}</td></tr>
-                                            <tr className="bg-gray-50"><td className="py-1 px-2 border border-black font-semibold text-black whitespace-nowrap">Days Present</td><td className="py-1 px-2 border border-black text-center">{daysPresent > 0 ? daysPresent : '-'}</td></tr>
-                                            <tr className="bg-white"><td className="py-1 px-2 border border-black font-semibold text-black whitespace-nowrap">Days Absent</td><td className="py-1 px-2 border border-black text-center">{daysAbsent >= 0 && totalDays > 0 ? daysAbsent : '-'}</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold bg-sky-800 text-white text-center py-0.5 mb-1">{summaryTitle}</p>
-                                    <table className="w-full border-collapse border border-black">
-                                        <tbody>
-                                            <tr className="bg-white"><td className="py-1 px-2 border border-black font-semibold text-black whitespace-nowrap">Total Marks Obtained</td><td className="py-1 px-2 border border-black text-center text-gray-800">{result.total}</td></tr>
-                                            <tr className="bg-gray-50"><td className="py-1 px-2 border border-black font-semibold text-black whitespace-nowrap">Total Marks Obtainable</td><td className="py-1 px-2 border border-black text-center text-gray-800">{totalMarksObtainable}</td></tr>
-                                            <tr className="bg-white"><td className="py-1 px-2 border border-black font-semibold text-black whitespace-nowrap">Class Population</td><td className="py-1 px-2 border border-black text-center text-gray-800">{studentData.length}</td></tr>
-                                            <tr className="bg-gray-50"><td className="py-1 px-2 border border-black font-semibold text-black whitespace-nowrap">{averageScoreLabel}</td><td className="py-1 px-2 border border-black text-center font-bold text-black">{result.average.toFixed(2)}</td></tr>
-                                            <tr className="bg-white"><td className="py-1 px-2 border border-black font-semibold text-black whitespace-nowrap">{averageGradeLabel}</td><td className="py-1 px-2 border border-black text-center font-bold text-black">{overallGradeInfo.grade}</td></tr>
-                                            <tr className="bg-gray-50"><td className="py-1 px-2 border border-black font-semibold text-black whitespace-nowrap">Performance Remarks</td><td className="py-1 px-2 border border-black text-center text-gray-800">{overallGradeInfo.remark}</td></tr>
-                                            {templateSettings.showClassPosition && <tr className="bg-white"><td className="py-1 px-2 border border-black font-semibold text-black whitespace-nowrap">Class Position</td><td className="py-1 px-2 border border-black text-center font-bold text-black">{getOrdinalSuffix(result.position)}</td></tr>}
-                                            {templateSettings.showPromotionStatus && <tr className="bg-gray-50"><td className="py-1 px-2 border border-black font-semibold text-black whitespace-nowrap">Promotion Status</td><td className="py-1 px-2 border border-black text-center font-bold text-black">{promotionStatus}</td></tr>}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            
-                            <p className="text-sm font-bold bg-sky-800 text-white text-center py-0.5 mb-1">{cognitiveDomainTitle}</p>
-                            <table className="w-full text-xs border-collapse border border-black mb-1">
-                                <thead className="font-bold bg-gray-200 text-black">
-                                    <tr>
-                                        {['Subjects', '1st CA (20)', '2nd CA (20)', 'Exam (60)', 'Total (100)', 'Grade', 'Remarks', 'Rank', 'Class Average'].map(h => <th key={h} className="py-1.5 px-2 border border-black">{h}</th>)}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {subjects.map((subject, index) => {
-                                        const scoreBreakdown = student.scores[subject] || { firstCA: null, secondCA: null, exam: null };
-                                        const total = getScoreTotal(scoreBreakdown);
-                                        const { grade, remark } = getGradeInfo(total);
-                                        const stats = subjectStats[subject];
-                                        const rank = stats.scores.indexOf(total) + 1;
-                                        
-                                        return (
-                                            <tr key={subject} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                                <td className="py-1.5 px-2 border border-black font-semibold text-left text-black align-middle">{subject}</td>
-                                                <td className="py-1.5 px-2 border border-black text-center text-gray-800 align-middle">{formatScore(scoreBreakdown.firstCA)}</td>
-                                                <td className="py-1.5 px-2 border border-black text-center text-gray-800 align-middle">{formatScore(scoreBreakdown.secondCA)}</td>
-                                                <td className="py-1.5 px-2 border border-black text-center text-gray-800 align-middle">{formatScore(scoreBreakdown.exam)}</td>
-                                                <td className="py-1.5 px-2 border border-black text-center font-bold text-black align-middle">{total}</td>
-                                                <td className="py-1.5 px-2 border border-black text-center font-bold text-black align-middle">{grade}</td>
-                                                <td className="py-1.5 px-2 border border-black text-center text-gray-800 align-middle">{remark}</td>
-                                                <td className="py-1.5 px-2 border border-black text-center text-gray-800 align-middle">{rank > 0 ? rank : '-'}</td>
-                                                <td className="py-1.5 px-2 border border-black text-center text-gray-800 align-middle">{stats.average.toFixed(2)}</td>
+                            <div className="grid grid-cols-12 gap-x-4 flex-grow text-sm">
+                                <main className="col-span-8">
+                                    <h3 className="text-center font-bold bg-slate-200 text-slate-800 py-1.5 mb-1 text-base">ACADEMIC RECORDS</h3>
+                                    <table className="w-full border-collapse border border-slate-400">
+                                        <thead className="bg-slate-100 text-slate-800 font-bold text-center">
+                                            <tr>
+                                                <th className="py-1.5 px-2 border border-slate-400 text-left">SUBJECT</th>
+                                                <th className="py-1.5 px-2 border border-slate-400">1st CA</th>
+                                                <th className="py-1.5 px-2 border border-slate-400">2nd CA</th>
+                                                <th className="py-1.5 px-2 border border-slate-400">Exam</th>
+                                                <th className="py-1.5 px-2 border border-slate-400">Total</th>
+                                                <th className="py-1.5 px-2 border border-slate-400">GRADE</th>
+                                                <th className="py-1.5 px-2 border border-slate-400">REMARK</th>
                                             </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                            
-                            {templateSettings.showGradeAnalysis && <>
-                                <p className="text-sm font-bold bg-sky-800 text-white text-center py-0.5 mb-1">{gradeAnalysisTitle}</p>
-                                <table className="w-full text-xs border-collapse border border-black mb-1">
-                                    <thead className="font-bold bg-gray-200 text-black">
-                                        <tr>
-                                            {['Grade', ...Object.keys(gradeAnalysis)].map(g => <th key={g} className="py-1 px-2 border border-black">{g}</th>)}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td className="py-1 px-2 border border-black font-semibold text-black align-middle">No. of Subjects</td>
-                                            {Object.values(gradeAnalysis).map((count, i) => <td key={i} className="py-1 px-2 border border-black text-center text-gray-800 align-middle">{count}</td>)}
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </>}
-                             
-                            <div className="flex justify-between items-start mb-1">
-                                <div className="w-1/2 pr-2">
-                                    <p className="font-bold text-black text-sm">Grade Scale</p>
-                                    <p className="text-[10px] text-gray-700">75 - 100: A1 (Excellent), 70 - 74: B2 (Very Good), 65 - 69: B3 (Good), 60 - 64: C4 (Credit), 55 - 59: C5 (Credit), 50 - 54: C6 (Credit), 45 - 49: D7 (Pass), 40 - 44: E8 (Pass), 0 - 39: F9 (Fail)</p>
-                                </div>
-                                {templateSettings.showQRCode &&
-                                    <div className="w-1/2 flex justify-end">
-                                        <div className="text-center">
-                                           <div className="w-20 h-20 bg-gray-200 border border-black flex items-center justify-center text-[8px] p-1">QR CODE</div>
-                                            <p className="text-[10px] text-gray-700">Scan the QR code to Verify</p>
+                                        </thead>
+                                        <tbody>
+                                            {studentSubjects.map(subject => {
+                                                const score = student.scores[subject] || { firstCA: null, secondCA: null, exam: null };
+                                                const total = getScoreTotal(score);
+                                                const { grade, remark } = getGradeInfo(total);
+                                                return (
+                                                    <tr key={subject} className="even:bg-slate-50 align-top">
+                                                        <td className="py-1.5 px-2 border border-slate-400 font-semibold text-black">{subject}</td>
+                                                        <td className="py-1.5 px-2 border border-slate-400 text-center text-black">{score.firstCA ?? '-'}</td>
+                                                        <td className="py-1.5 px-2 border border-slate-400 text-center text-black">{score.secondCA ?? '-'}</td>
+                                                        <td className="py-1.5 px-2 border border-slate-400 text-center text-black">{score.exam ?? '-'}</td>
+                                                        <td className="py-1.5 px-2 border border-slate-400 text-center font-bold text-black">{total}</td>
+                                                        <td className={`py-1.5 px-2 border border-slate-400 text-center ${getGradeColor(grade)}`}>{grade}</td>
+                                                        <td className="py-1.5 px-2 border border-slate-400 text-center text-black">{remark}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </main>
+                                <aside className="col-span-4 space-y-3">
+                                    <div>
+                                        <h3 className="text-center font-bold bg-slate-200 text-slate-800 py-1.5 mb-1 text-base">AFFECTIVE DOMAIN</h3>
+                                        <table className="w-full border-collapse border border-slate-400">
+                                            <tbody>
+                                                {AFFECTIVE_DOMAIN_SKILLS.map(skill => {
+                                                    const rating = student.affectiveDomain?.[skill] || '';
+                                                    const ratingText = rating ? RATING_SCALE[rating].replace(/\s\(.\)/, '') : '-';
+                                                    return (
+                                                        <tr key={skill} className="even:bg-slate-50 align-top">
+                                                            <td className="py-1.5 px-2 border-r border-slate-400 text-black">{skill}</td>
+                                                            <td className="py-1.5 px-2 text-center text-black">{ratingText}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-center font-bold bg-slate-200 text-slate-800 py-1.5 mb-1 text-base">PSYCHOMOTOR SKILLS</h3>
+                                        <table className="w-full border-collapse border border-slate-400">
+                                            <tbody>
+                                                {PSYCHOMOTOR_SKILLS.map(skill => {
+                                                    const rating = student.psychomotorSkills?.[skill] || '';
+                                                    const ratingText = rating ? RATING_SCALE[rating].replace(/\s\(.\)/, '') : '-';
+                                                    return (
+                                                        <tr key={skill} className="even:bg-slate-50 align-top">
+                                                            <td className="py-1.5 px-2 border-r border-slate-400 text-black">{skill}</td>
+                                                            <td className="py-1.5 px-2 text-center text-black">{ratingText}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {templateSettings.showGradeAnalysis && 
+                                        <div>
+                                            <h3 className="text-center font-bold bg-slate-200 text-slate-800 py-1.5 mb-1 text-base">GRADE SCALE</h3>
+                                            <div className="border border-slate-400 p-1.5 text-center text-xs leading-tight">
+                                                A1 (75-100) | B2 (70-74) | B3 (65-69) | C4 (60-64) | C5 (55-59) | C6 (50-54) | D7 (45-49) | E8 (40-44) | F9 (0-39)
+                                            </div>
+                                        </div>
+                                    }
+                                     <div>
+                                        <h3 className="text-center font-bold bg-slate-200 text-slate-800 py-1.5 mb-1 text-base">PERFORMANCE SUMMARY</h3>
+                                        <div className="border border-slate-400 p-2 space-y-1.5 text-slate-800">
+                                            <div><strong>Total Score:</strong> <span className="float-right font-bold">{result.total.toFixed(2)} / {studentSubjects.length * 100}</span></div>
+                                            <div><strong>Average:</strong> <span className="float-right font-bold">{result.average.toFixed(2)}%</span></div>
+                                            {templateSettings.showClassPosition && <div><strong>Position in Class:</strong> <span className="float-right font-bold">{getOrdinalSuffix(result.position)}</span></div>}
+                                            {templateSettings.showPromotionStatus && <div><strong>Promotion Status:</strong> <span className="float-right font-bold">{promotionStatus}</span></div>}
                                         </div>
                                     </div>
+                                </aside>
+                            </div>
+
+                            <section className="mt-2 text-base">
+                                <div className="mt-2">
+                                    <h4 className="font-bold text-slate-800">Form Master's Remark:</h4>
+                                    <p className="italic border-b border-dotted border-slate-500 pb-1 min-h-[28px]">{student.remark}</p>
+                                </div>
+                                <div className="mt-2">
+                                    <h4 className="font-bold text-slate-800">Principal's Remark:</h4>
+                                    <p className="italic border-b border-dotted border-slate-500 pb-1 min-h-[28px]">{principalRemark}</p>
+                                </div>
+                            </section>
+
+                            <footer className="mt-auto pt-2 flex justify-between items-end text-base">
+                                <p className="font-bold text-slate-800">Next Term Begins: <span className="font-normal">{new Date(nextTermBegins + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</span></p>
+                                <div className="text-center">
+                                    <p className="border-t-2 border-slate-600 px-8 pt-1 font-bold text-slate-800">Principal's Signature</p>
+                                </div>
+                                 {templateSettings.showQRCode &&
+                                    <div className="text-center">
+                                        <img src={qrCodeUrl} alt="QR Code" className="w-20 h-20" crossOrigin="anonymous" />
+                                        <p className="text-sm text-slate-500">Scan to verify</p>
+                                    </div>
                                 }
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                    <h4 className="font-bold underline text-black">Form Master's Remark</h4>
-                                    <p className="text-gray-800">{student.remark || 'N/A'}</p>
-                                </div>
-                                 <div>
-                                    <h4 className="font-bold underline text-black">Principal's Remark</h4>
-                                    <p className="text-gray-800">{principalRemark}</p>
-                                </div>
-                            </div>
-                            
-                            <p className="font-bold text-sm mt-2 text-center">Next Term Begins: <span className="text-red-800">{new Date(nextTermBegins + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span></p>
-
-                       </div>
+                            </footer>
+                        </div>
                     </div>
                 )
             })}

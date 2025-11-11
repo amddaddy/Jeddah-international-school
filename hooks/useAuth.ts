@@ -1,5 +1,6 @@
 
-import React, { createContext, useState, useContext, useEffect, useMemo } from 'react';
+
+import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import { User, Role, SchoolInfo } from '../types';
 
 const USERS_DB_KEY = 'insight_ed_users_db';
@@ -13,8 +14,9 @@ interface AuthContextType {
     schoolInfo: SchoolInfo | null;
     login: (email: string, password: string) => Promise<User | null>;
     logout: () => void;
-    register: (name: string, email: string, password: string, role: Role) => Promise<User | null>;
+    register: (name: string, email: string, password: string, role: Role, assignedClasses?: { classKey: string; subjects: string[] }[]) => Promise<User | null>;
     setupSchool: (info: SchoolInfo) => void;
+    clearAllData: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, []);
 
-    const login = async (email: string, password: string): Promise<User | null> => {
+    const login = useCallback(async (email: string, password: string): Promise<User | null> => {
         const user = users.find(u => u.email === email && u.password === password);
         
         if (user) {
@@ -52,9 +54,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return user;
         }
         return null;
-    };
+    }, [users]);
 
-    const register = async (name: string, email: string, password: string, role: Role): Promise<User | null> => {
+    const register = useCallback(async (name: string, email: string, password: string, role: Role, assignedClasses?: { classKey: string; subjects: string[] }[]): Promise<User | null> => {
         const existingUser = users.find(u => u.email === email);
 
         if (existingUser) {
@@ -69,22 +71,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role,
         };
         
+        if (role === 'teacher' && assignedClasses) {
+            newUser.assignedClasses = assignedClasses;
+        }
+
         const updatedUsers = [...users, newUser];
         setUsers(updatedUsers);
         localStorage.setItem(USERS_DB_KEY, JSON.stringify(updatedUsers));
         return newUser;
-    };
+    }, [users]);
 
-    const setupSchool = (info: SchoolInfo) => {
+    const setupSchool = useCallback((info: SchoolInfo) => {
         localStorage.setItem(SCHOOL_INFO_KEY, JSON.stringify(info));
         setSchoolInfo(info);
-    };
+    }, []);
 
-    const logout = () => {
+    const logout = useCallback(() => {
         localStorage.removeItem(SESSION_KEY);
         setCurrentUser(null);
-    };
+    }, []);
     
+    const clearAllData = useCallback(() => {
+        localStorage.removeItem(USERS_DB_KEY);
+        localStorage.removeItem(SESSION_KEY);
+        localStorage.removeItem(SCHOOL_INFO_KEY);
+        window.location.reload();
+    }, []);
+
     const value = useMemo(() => ({ 
         currentUser, 
         users,
@@ -93,8 +106,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login, 
         logout, 
         register,
-        setupSchool 
-    }), [currentUser, users, isAuthReady, schoolInfo]);
+        setupSchool,
+        clearAllData
+    }), [currentUser, users, isAuthReady, schoolInfo, login, logout, register, setupSchool, clearAllData]);
 
     return React.createElement(AuthContext.Provider, { value: value }, children);
 };

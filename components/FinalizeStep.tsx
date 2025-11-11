@@ -9,6 +9,7 @@ import DownloadIcon from './icons/DownloadIcon';
 import PhotoIcon from './icons/PhotoIcon';
 import { getScoreTotal } from '../utils';
 import ConfirmationDialog from './ConfirmationDialog';
+import BehavioralRatingsManager from './BehavioralRatingsManager';
 
 interface FinalizeRowProps {
     student: Student;
@@ -21,7 +22,7 @@ const formatScoreDisplay = (score: ScorePart) => {
     return String(score);
 }
 
-const FinalizeRow: React.FC<FinalizeRowProps> = ({ student, subjects, onStudentChange }) => {
+const FinalizeRow: React.FC<FinalizeRowProps> = React.memo(({ student, subjects, onStudentChange }) => {
     const [localAttendance, setLocalAttendance] = useState(student.totalAttendance);
     const [localRemark, setLocalRemark] = useState(student.remark || '');
 
@@ -93,7 +94,7 @@ const FinalizeRow: React.FC<FinalizeRowProps> = ({ student, subjects, onStudentC
             </td>
         </tr>
     );
-};
+});
 
 
 interface FinalizeStepProps {
@@ -204,6 +205,7 @@ const FinalizeStep: React.FC<FinalizeStepProps> = ({ students, subjects, onStude
                         </table>
                     </div>
                 </Card>
+                <BehavioralRatingsManager students={students} onStudentChange={onStudentChange} />
             </div>
             <aside className="space-y-8">
                 <ReportSettings {...reportSettings} />

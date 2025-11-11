@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { SCHOOL_LOGO_BASE64 } from './assets';
 import { User } from '../types';
@@ -9,8 +10,8 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ schoolName, user, onLogout }) => (
-  <header className="bg-white shadow-md">
-    <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+  <header className="bg-white shadow-md h-24">
+    <div className="container mx-auto px-6 h-full flex justify-between items-center">
       <div className="flex items-center space-x-4">
         <img src={SCHOOL_LOGO_BASE64} alt={`${schoolName} Logo`} className="h-16 w-16 object-contain" />
         <div>

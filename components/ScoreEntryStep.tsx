@@ -2,14 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { Student, ScorePart, ScoreBreakdown } from '../types';
 import Card from './Card';
+import { getSubjectsForStudent } from '../utils';
 
 interface ScoreEntryRowProps {
     student: Student;
     subject: string;
     onStudentChange: (student: Student) => void;
+    isSubjectApplicable: boolean;
 }
 
-const ScoreEntryRow: React.FC<ScoreEntryRowProps> = ({ student, subject, onStudentChange }) => {
+const ScoreEntryRow: React.FC<ScoreEntryRowProps> = React.memo(({ student, subject, onStudentChange, isSubjectApplicable }) => {
     
     const currentScores = student.scores[subject] || { firstCA: null, secondCA: null, exam: null };
     const [localScores, setLocalScores] = useState({
@@ -60,49 +62,51 @@ const ScoreEntryRow: React.FC<ScoreEntryRowProps> = ({ student, subject, onStude
     };
     
     const getInputClass = (hasError: boolean) => {
-        const baseClass = "w-full text-center px-1 py-1.5 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent";
+        const baseClass = "w-full text-center px-1 py-1.5 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent disabled:bg-slate-100 disabled:cursor-not-allowed";
         return hasError 
             ? `${baseClass} border-red-500 ring-red-500`
             : `${baseClass} border-slate-300 focus:ring-sky-500`;
     };
 
-
     return (
-        <tr className="border-b border-slate-200 hover:bg-slate-50">
-            <td className="p-3 font-medium text-slate-700">{student.name}</td>
+        <tr className={`border-b border-slate-200 ${isSubjectApplicable ? 'hover:bg-slate-50' : 'bg-slate-50 text-slate-400'}`}>
+            <td className="p-3 font-medium">{student.name} {student.stream && `(${student.stream})`}</td>
             <td className="p-3">
                 <input
                     type="text"
-                    value={localScores.firstCA}
+                    value={isSubjectApplicable ? localScores.firstCA : ''}
                     onChange={(e) => handleLocalChange('firstCA', e.target.value)}
                     onBlur={() => handleBlur('firstCA')}
-                    placeholder="1st CA"
+                    placeholder="-"
                     className={getInputClass(errors.firstCA)}
+                    disabled={!isSubjectApplicable}
                 />
             </td>
             <td className="p-3">
                 <input
                     type="text"
-                    value={localScores.secondCA}
+                    value={isSubjectApplicable ? localScores.secondCA : ''}
                     onChange={(e) => handleLocalChange('secondCA', e.target.value)}
                     onBlur={() => handleBlur('secondCA')}
-                    placeholder="2nd CA"
+                    placeholder="-"
                     className={getInputClass(errors.secondCA)}
+                    disabled={!isSubjectApplicable}
                 />
             </td>
             <td className="p-3">
                 <input
                     type="text"
-                    value={localScores.exam}
+                    value={isSubjectApplicable ? localScores.exam : ''}
                     onChange={(e) => handleLocalChange('exam', e.target.value)}
                     onBlur={() => handleBlur('exam')}
-                    placeholder="Exam"
+                    placeholder="-"
                     className={getInputClass(errors.exam)}
+                    disabled={!isSubjectApplicable}
                 />
             </td>
         </tr>
     );
-};
+});
 
 
 interface ScoreEntryStepProps {
@@ -112,16 +116,17 @@ interface ScoreEntryStepProps {
     onSelectSubject: (subject: string | null) => void;
     onStudentChange: (student: Student) => void;
     classInfo: { level: string; arm: string };
+    selectedSection: 'Junior' | 'Senior';
 }
 
 const ScoreEntryStep: React.FC<ScoreEntryStepProps> = ({
-    students, subjects, selectedSubject, onSelectSubject, onStudentChange, classInfo
+    students, subjects, selectedSubject, onSelectSubject, onStudentChange, classInfo, selectedSection
 }) => {
     
     if (subjects.length === 0) {
         return (
              <Card title="Enter Subject Scores">
-                <p className="text-slate-600">Please add subjects in 'Step 1: Class Setup' before entering scores.</p>
+                <p className="text-slate-600">Please add subjects in the 'Setup' tab before entering scores.</p>
             </Card>
         )
     }
@@ -156,14 +161,19 @@ const ScoreEntryStep: React.FC<ScoreEntryStepProps> = ({
                             </tr>
                         </thead>
                         <tbody>
-                            {students.map(student => (
-                                <ScoreEntryRow
-                                    key={student.id}
-                                    student={student}
-                                    subject={selectedSubject}
-                                    onStudentChange={onStudentChange}
-                                />
-                            ))}
+                            {students.map(student => {
+                                const studentSubjects = getSubjectsForStudent(student, selectedSection);
+                                const isSubjectApplicable = studentSubjects.includes(selectedSubject);
+                                return (
+                                    <ScoreEntryRow
+                                        key={student.id}
+                                        student={student}
+                                        subject={selectedSubject}
+                                        onStudentChange={onStudentChange}
+                                        isSubjectApplicable={isSubjectApplicable}
+                                    />
+                                );
+                            })}
                         </tbody>
                     </table>
                  </div>

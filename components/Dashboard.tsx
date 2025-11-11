@@ -7,7 +7,7 @@ import CurrencyDollarIcon from './icons/CurrencyDollarIcon';
 import MegaphoneIcon from './icons/MegaphoneIcon';
 import SpinnerIcon from './icons/SpinnerIcon';
 import SparklesIcon from './icons/SparklesIcon';
-import { getScoreTotal } from '../utils';
+import { getScoreTotal, getSubjectsForStudent } from '../utils';
 import { ai } from '../lib/ai';
 
 interface DashboardProps {
@@ -25,28 +25,27 @@ const Dashboard: React.FC<DashboardProps> = ({ students, subjects, classInfo, on
     
     const stats = useMemo(() => {
         const totalStudents = students.length;
+        const isSenior = classInfo.level.startsWith('SS');
         if (totalStudents === 0) {
-            return {
-                totalStudents: 0,
-                classAverage: 0,
-                totalPayments: 0,
-                totalBilled: 0,
-            };
+            return { totalStudents: 0, classAverage: 0, totalPayments: 0, totalBilled: 0 };
         }
+    
+        const studentAverages = students.map(student => {
+            const studentSubjects = getSubjectsForStudent(student, isSenior ? 'Senior' : 'Junior');
+            if (studentSubjects.length === 0) return 0;
 
-        let totalAverage = 0;
-        students.forEach(student => {
-            const totalScore = subjects.reduce((acc, subject) => acc + getScoreTotal(student.scores[subject]), 0);
-            const average = subjects.length > 0 ? totalScore / subjects.length : 0;
-            totalAverage += average;
+            const totalScore = studentSubjects.reduce((acc, subject) => acc + getScoreTotal(student.scores[subject]), 0);
+            return totalScore / studentSubjects.length;
         });
-        const classAverage = totalAverage / totalStudents;
+    
+        const totalOfAverages = studentAverages.reduce((sum, avg) => sum + avg, 0);
+        const classAverage = totalStudents > 0 ? totalOfAverages / totalStudents : 0;
         
         const totalPayments = students.reduce((sum, s) => sum + (s.payments?.reduce((pSum, p) => pSum + p.amountPaid, 0) || 0), 0);
         const totalBilled = students.reduce((sum, s) => sum + (s.payments?.reduce((pSum, p) => pSum + p.totalBill, 0) || 0), 0);
         
         return { totalStudents, classAverage, totalPayments, totalBilled };
-    }, [students, subjects]);
+    }, [students, classInfo.level]);
     
     const handleDraftAnnouncement = async () => {
         if (!announcementPrompt.trim()) return;

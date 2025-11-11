@@ -1,28 +1,29 @@
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Student, Result, Payment, FeeItem, Invoice, TemplateSettings, Permissions, Role, Permission } from './types';
-import { Type } from '@google/genai';
+
+import React, { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
+import { Student, Result, Payment, FeeItem, Invoice, TemplateSettings, Permissions, Role, Permission, SchoolInfo } from './types';
 import { ai } from './lib/ai';
 import Header from './components/Header';
 import WorkflowTabs from './components/WorkflowTabs';
-import Dashboard from './components/Dashboard';
-import SetupStep from './components/SetupStep';
-import ScoreEntryStep from './components/ScoreEntryStep';
-import FinalizeStep from './components/FinalizeStep';
-import PaymentsStep from './components/PaymentsStep';
-import InvoicingStep from './components/InvoicingStep';
-import TemplatesStep from './components/TemplatesStep';
 import ResultsDisplay from './components/ResultsDisplay';
 import SubjectWiseReport from './components/SubjectWiseReport';
 import BroadsheetReport from './components/BroadsheetReport';
 import PaymentReceipt from './components/PaymentReceipt';
 import SchoolFeesInvoice from './components/SchoolFeesInvoice';
-import SystemGuide from './components/SystemGuide';
-import AccessControlStep from './components/AccessControlStep';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import { getScoreTotal, getGradeInfo } from './utils';
+import { getScoreTotal, getGradeInfo, getSubjectsForStudent, generatePdf, JUNIOR_SUBJECTS, SENIOR_CORE_SUBJECTS, SCIENCE_SUBJECTS, ART_SUBJECTS, COMMERCE_SUBJECTS, ALL_SENIOR_SUBJECTS } from './utils';
 import { useAuth } from './hooks/useAuth';
+import SpinnerIcon from './components/icons/SpinnerIcon';
+
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const SetupStep = lazy(() => import('./components/SetupStep'));
+const ScoreEntryStep = lazy(() => import('./components/ScoreEntryStep'));
+const FinalizeStep = lazy(() => import('./components/FinalizeStep'));
+const PaymentsStep = lazy(() => import('./components/PaymentsStep'));
+const InvoicingStep = lazy(() => import('./components/InvoicingStep'));
+const TemplatesStep = lazy(() => import('./components/TemplatesStep'));
+const SystemGuide = lazy(() => import('./components/SystemGuide'));
+const AccessControlStep = lazy(() => import('./components/AccessControlStep'));
+
 
 const initialPermissions: Permissions = {
     admin: {
@@ -32,7 +33,7 @@ const initialPermissions: Permissions = {
         scores: true,
         invoicing: true,
         payments: true,
-        reports: true,
+        finalize: true,
         guide: true,
         access_control: true,
     },
@@ -43,7 +44,18 @@ const initialPermissions: Permissions = {
         scores: true,
         invoicing: false,
         payments: false,
-        reports: true,
+        finalize: true,
+        guide: true,
+        access_control: false,
+    },
+    accountant: {
+        dashboard: true,
+        setup: false,
+        templates: false,
+        scores: false,
+        invoicing: true,
+        payments: true,
+        finalize: false,
         guide: true,
         access_control: false,
     },
@@ -54,7 +66,7 @@ const initialPermissions: Permissions = {
         scores: false,
         invoicing: false,
         payments: false,
-        reports: false,
+        finalize: false,
         guide: true,
         access_control: false,
     },
@@ -63,31 +75,123 @@ const initialPermissions: Permissions = {
         setup: false,
         templates: false,
         scores: false,
-        invoicing: true,
-        payments: true,
-        reports: false,
+        invoicing: false,
+        payments: false,
+        finalize: false,
         guide: true,
         access_control: false,
     },
 };
 
+const initialStudentsByClass: Record<string, Student[]> = {
+    'SS 1-A': [
+         { id: '1', name: 'Darius Ekojoka ABAH', scores: {}, totalAttendance: 115, photo: undefined, remark: '', admissionNo: 'WPA0018', gender: 'Male', dob: '2010-05-15', parentName: 'Mr. Patrick Ogwu Abah', stream: 'Science', payments: [], invoices: [], affectiveDomain: {}, psychomotorSkills: {} },
+         { id: '2', name: 'Blessing ADAMS', scores: {}, totalAttendance: 118, photo: undefined, remark: '', admissionNo: 'WPA0019', gender: 'Female', dob: '2010-07-22', parentName: 'Mrs. Adams', stream: 'Art', payments: [], invoices: [], affectiveDomain: {}, psychomotorSkills: {} },
+         { id: '3', name: 'Charles BINO', scores: {}, totalAttendance: 110, photo: undefined, remark: '', admissionNo: 'WPA0020', gender: 'Male', dob: '2010-03-10', parentName: 'Mr. Bino', stream: 'Commerce', payments: [], invoices: [], affectiveDomain: {}, psychomotorSkills: {} },
+         { id: '4', name: 'Zainab MUSA', scores: {}, totalAttendance: 120, photo: undefined, remark: '', admissionNo: 'WPA0021', gender: 'Female', dob: '2010-09-01', parentName: 'Alhaji Musa', stream: 'Science', payments: [], invoices: [], affectiveDomain: {}, psychomotorSkills: {} },
+    ]
+};
+
+const EMPTY_SUBJECTS: string[] = [];
+
 const App: React.FC = () => {
-    const { currentUser, logout, schoolInfo, setupSchool } = useAuth();
-    const [students, setStudents] = useState<Student[]>([
-        { id: '1', name: 'Darius Ekojoka ABAH', scores: {}, totalAttendance: 115, photo: undefined, remark: '', admissionNo: 'WPA0018', gender: 'Male', dob: '2013-05-15', parentName: 'Mr. Patrick Ogwu Abah (Guardian)', payments: [], invoices: [] }
-    ]);
-    const [subjects, setSubjects] = useState<string[]>(['English Studies', 'Mathematics', 'Basic Science', 'Basic Technology', 'Computer Studies', 'PHE', 'Social Studies', 'Civic Education', 'Security Education', 'Agricultural Science', 'Home Economics', 'Business Studies', 'Keyboarding', 'CCA', 'History', 'CRS']);
+    const { currentUser, logout, schoolInfo, setupSchool, clearAllData } = useAuth();
     
     const userPermissions = currentUser ? initialPermissions[currentUser.role] : ({} as Record<Permission, boolean>);
     const defaultStep = userPermissions.dashboard ? 'dashboard' : 'guide';
 
     const [currentStep, setCurrentStep] = useState<'dashboard' | 'setup' | 'templates' | 'scores' | 'invoicing' | 'payments' | 'finalize' | 'guide' | 'access_control'>(defaultStep);
 
-    const secondaryLevels = ['JSS 1', 'JSS 2', 'JSS 3', 'SS 1', 'SS 2', 'SS 3'];
-    const [levels] = useState(secondaryLevels);
-    const [arms] = useState(['A', 'B', 'C']);
-    const [selectedLevel, setSelectedLevel] = useState('JSS 2');
-    const [selectedArm, setSelectedArm] = useState('A');
+    const juniorLevels = ['JSS 1', 'JSS 2', 'JSS 3'];
+    const seniorLevels = ['SS 1', 'SS 2', 'SS 3'];
+    const allArms = ['A', 'B', 'C'];
+    
+    const [selectedSection, setSelectedSection] = useState<'Junior' | 'Senior'>('Senior');
+    const [selectedStream, setSelectedStream] = useState<'All' | 'Science' | 'Art' | 'Commerce'>('All');
+
+    const [selectedLevel, setSelectedLevel] = useState('');
+    const [selectedArm, setSelectedArm] = useState('');
+
+    const availableLevelsKey = useMemo(() => {
+        const levelsForSection = selectedSection === 'Junior' ? juniorLevels : seniorLevels;
+        if (currentUser?.role === 'teacher' && currentUser.assignedClasses && currentUser.assignedClasses.length > 0) {
+            const assignedLevels = new Set(currentUser.assignedClasses.map(ac => ac.classKey.split('-')[0]));
+            return levelsForSection.filter(level => assignedLevels.has(level)).join(',');
+        }
+        return levelsForSection.join(',');
+    }, [currentUser, selectedSection]);
+
+    const availableLevels = useMemo(() => {
+        return availableLevelsKey ? availableLevelsKey.split(',') : [];
+    }, [availableLevelsKey]);
+
+    const validLevel = useMemo(() => {
+        if (availableLevels.includes(selectedLevel)) {
+            return selectedLevel;
+        }
+        return availableLevels[0] || '';
+    }, [availableLevels, selectedLevel]);
+
+    const availableArmsKey = useMemo(() => {
+        if (currentUser?.role === 'teacher' && currentUser.assignedClasses) {
+            const arms = Array.from(new Set(
+                currentUser.assignedClasses
+                    .filter(ac => ac.classKey.startsWith(validLevel))
+                    .map(ac => ac.classKey.split('-')[1])
+                    .filter(Boolean) as string[]
+            ));
+            return arms.join(',');
+        }
+        return allArms.join(',');
+    }, [currentUser, validLevel]);
+
+    const availableArms = useMemo(() => {
+        if (availableArmsKey === '') return [];
+        return availableArmsKey.split(',');
+    }, [availableArmsKey]);
+    
+    const validArm = useMemo(() => {
+        if (availableArms.includes(selectedArm)) {
+            return selectedArm;
+        }
+        return availableArms[0] || '';
+    }, [availableArms, selectedArm]);
+
+    useEffect(() => {
+      if (selectedSection === 'Junior') {
+        setSelectedStream('All');
+      }
+    }, [selectedSection]);
+    
+    const [studentsByClass, setStudentsByClass] = useState(initialStudentsByClass);
+    const classKey = useMemo(() => `${validLevel}-${validArm}`, [validLevel, validArm]);
+    
+    const studentsForClass = useMemo(() => studentsByClass[classKey] || [], [studentsByClass, classKey]);
+
+    const students = useMemo(() => {
+        if (selectedStream === 'All') {
+            return studentsForClass;
+        }
+        return studentsForClass.filter(s => s.stream === selectedStream);
+    }, [studentsForClass, selectedStream]);
+
+
+     const sectionName = useMemo(() => {
+        return validLevel.startsWith('JSS') ? 'Junior Secondary School' : 'Senior Secondary School';
+    }, [validLevel]);
+
+    const subjectsForClass = useMemo(() => {
+        return selectedSection === 'Junior' ? JUNIOR_SUBJECTS : ALL_SENIOR_SUBJECTS;
+    }, [selectedSection]);
+
+    const teacherSubjectsForSelectedClass = useMemo(() => {
+        if (currentUser?.role === 'teacher' && currentUser.assignedClasses) {
+            const assignment = currentUser.assignedClasses.find(ac => ac.classKey === classKey);
+            return assignment ? assignment.subjects : EMPTY_SUBJECTS;
+        }
+        return subjectsForClass;
+    }, [currentUser, classKey, subjectsForClass]);
+
 
     const [results, setResults] = useState<Result[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -123,92 +227,145 @@ const App: React.FC = () => {
     const [invoiceForPrinting, setInvoiceForPrinting] = useState<Invoice | null>(null);
     const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
     
-    const [templateSettings, setTemplateSettings] = useState<TemplateSettings>({
-      reportCard: {
-        schoolName: 'Your School Name',
-        schoolAddress: '123 Education Lane, Knowledge City, 12345',
-        contactInfo: 'Tel: (123) 456-7890, Email: contact@yourschool.com',
-        fontFamily: 'Arial',
-        showGradeAnalysis: true,
-        showQRCode: true,
-        showClassPosition: true,
-        showPromotionStatus: true,
-      },
-      subjectWise: {
-        showSummary: true,
-        showPerformanceIndicators: true,
-        showPerformanceBar: true,
-      },
-      broadsheet: {
-        showSubjectAverage: true,
-        showHighestScore: true,
-        showLowestScore: true,
-      }
+    // START: Refactored Template Settings State Management
+    const [templateUiSettings, setTemplateUiSettings] = useState({
+        reportCard: {
+            fontFamily: 'Arial' as 'Arial' | 'Times New Roman' | 'Verdana',
+            showGradeAnalysis: true,
+            showQRCode: true,
+            showClassPosition: true,
+            showPromotionStatus: true,
+        },
+        subjectWise: {
+            showSummary: true,
+            showPerformanceIndicators: true,
+            showPerformanceBar: true,
+        },
+        broadsheet: {
+            showSubjectAverage: true,
+            showHighestScore: true,
+            showLowestScore: true,
+        }
     });
+
+    const templateSettings: TemplateSettings = useMemo(() => ({
+        ...templateUiSettings,
+        reportCard: {
+            ...templateUiSettings.reportCard,
+            schoolName: schoolInfo?.schoolName || 'Your School Name',
+            schoolAddress: schoolInfo?.schoolAddress || '123 Education Lane, Knowledge City, 12345',
+            contactInfo: schoolInfo?.contactInfo || 'Tel: (123) 456-7890, Email: contact@yourschool.com',
+        }
+    }), [templateUiSettings, schoolInfo]);
+
+    const handleSettingsChange = useCallback((newSettings: TemplateSettings | ((prev: TemplateSettings) => TemplateSettings)) => {
+        const finalNewSettings = typeof newSettings === 'function' ? newSettings(templateSettings) : newSettings;
+
+        setTemplateUiSettings({
+            reportCard: {
+                fontFamily: finalNewSettings.reportCard.fontFamily,
+                showGradeAnalysis: finalNewSettings.reportCard.showGradeAnalysis,
+                showQRCode: finalNewSettings.reportCard.showQRCode,
+                showClassPosition: finalNewSettings.reportCard.showClassPosition,
+                showPromotionStatus: finalNewSettings.reportCard.showPromotionStatus,
+            },
+            subjectWise: finalNewSettings.subjectWise,
+            broadsheet: finalNewSettings.broadsheet,
+        });
+
+        if (currentUser?.role === 'admin' && setupSchool) {
+            const newSchoolInfo: SchoolInfo = {
+                schoolName: finalNewSettings.reportCard.schoolName,
+                schoolAddress: finalNewSettings.reportCard.schoolAddress,
+                contactInfo: finalNewSettings.reportCard.contactInfo,
+            };
+
+            const hasChanged = !schoolInfo || 
+                newSchoolInfo.schoolName !== schoolInfo.schoolName ||
+                newSchoolInfo.schoolAddress !== schoolInfo.schoolAddress ||
+                newSchoolInfo.contactInfo !== schoolInfo.contactInfo;
+
+            if (hasChanged) {
+                setupSchool(newSchoolInfo);
+            }
+        }
+    }, [currentUser, schoolInfo, setupSchool, templateSettings]);
+    // END: Refactored Template Settings State Management
 
     const [permissions, setPermissions] = useState<Permissions>(initialPermissions);
     
-    useEffect(() => {
-        if (schoolInfo) {
-            setTemplateSettings(prev => ({
-                ...prev,
-                reportCard: {
-                    ...prev.reportCard,
-                    ...schoolInfo,
-                }
-            }));
-        }
-    }, [schoolInfo]);
-
-
-    const handleTemplateSettingsChange = (newSettings: TemplateSettings) => {
-        setTemplateSettings(newSettings);
-        if (currentUser?.role === 'admin' && setupSchool) {
-            const { schoolName, schoolAddress, contactInfo } = newSettings.reportCard;
-            setupSchool({ schoolName, schoolAddress, contactInfo });
-        }
-    };
-
+    const [documentToRender, setDocumentToRender] = useState<string | null>(null);
 
     useEffect(() => {
-        if (subjects.length > 0) {
-            if (!selectedSubjectForEntry) {
-                setSelectedSubjectForEntry(subjects[0]);
-            }
-            if (!selectedSubjectForReport) {
-                setSelectedSubjectForReport(subjects[0]);
-            }
-        } else {
-            setSelectedSubjectForEntry(null);
-            setSelectedSubjectForReport('');
-        }
-    }, [subjects, selectedSubjectForEntry, selectedSubjectForReport]);
-
-
-    const reportRef = useRef<HTMLDivElement>(null);
-    const subjectReportRef = useRef<HTMLDivElement>(null);
-    const broadsheetRef = useRef<HTMLDivElement>(null);
-    const receiptRef = useRef<HTMLDivElement>(null);
-    const invoiceRef = useRef<HTMLDivElement>(null);
-
-
-    const handleAddStudent = () => {
-        setStudents([...students, { id: Date.now().toString(), name: '', scores: {}, totalAttendance: 0, photo: undefined, remark: '', admissionNo: '', gender: '', dob: '', parentName: '', payments: [], invoices: [] }]);
-    };
-
-    const handleRemoveStudent = (id: string) => {
-        setStudents(students.filter((s) => s.id !== id));
-    };
-
-    const handleStudentChange = (updatedStudent: Student) => {
-        setStudents(students.map((s) => (s.id === updatedStudent.id ? updatedStudent : s)));
-    };
+        const firstAvailableSubject = teacherSubjectsForSelectedClass.length > 0 ? teacherSubjectsForSelectedClass[0] : null;
     
-    const calculateResults = useCallback((studentData: Student[]): Omit<Result, 'remark'>[] => {
+        setSelectedSubjectForEntry(current => {
+            if (!current || !teacherSubjectsForSelectedClass.includes(current)) {
+                return firstAvailableSubject;
+            }
+            return current;
+        });
+    
+        setSelectedSubjectForReport(current => {
+            if (!current || !teacherSubjectsForSelectedClass.includes(current)) {
+                return firstAvailableSubject || '';
+            }
+            return current;
+        });
+    }, [teacherSubjectsForSelectedClass.join(',')]);
+
+
+    const reportRef = React.useRef<HTMLDivElement>(null);
+    const subjectReportRef = React.useRef<HTMLDivElement>(null);
+    const broadsheetRef = React.useRef<HTMLDivElement>(null);
+    const receiptRef = React.useRef<HTMLDivElement>(null);
+    const invoiceRef = React.useRef<HTMLDivElement>(null);
+
+
+    const handleAddStudent = useCallback(() => {
+        const newStudent = {
+            id: Date.now().toString(),
+            name: '',
+            scores: {},
+            totalAttendance: 0,
+            photo: undefined,
+            remark: '',
+            admissionNo: '',
+            gender: '' as const,
+            dob: '',
+            parentName: '',
+            payments: [] as Payment[],
+            invoices: [] as Invoice[],
+            stream: undefined,
+            affectiveDomain: {},
+            psychomotorSkills: {},
+        };
+        setStudentsByClass(prev => {
+            const currentClassStudents = prev[classKey] || [];
+            return { ...prev, [classKey]: [...currentClassStudents, newStudent] };
+        });
+    }, [classKey]);
+
+    const handleRemoveStudent = useCallback((id: string) => {
+        setStudentsByClass(prev => {
+            const currentClassStudents = prev[classKey] || [];
+            return { ...prev, [classKey]: currentClassStudents.filter((s) => s.id !== id) };
+        });
+    }, [classKey]);
+
+    const handleStudentChange = useCallback((updatedStudent: Student) => {
+        setStudentsByClass(prev => {
+            const currentClassStudents = prev[classKey] || [];
+            return { ...prev, [classKey]: currentClassStudents.map((s) => (s.id === updatedStudent.id ? updatedStudent : s)) };
+        });
+    }, [classKey]);
+    
+    const calculateResults = useCallback((studentData: Student[]): Result[] => {
         const studentTotals = studentData.map(student => {
-            const total = subjects.reduce((acc, subject) => acc + getScoreTotal(student.scores[subject]), 0);
-            const average = subjects.length > 0 ? total / subjects.length : 0;
-            return { studentId: student.id, name: student.name, total, average };
+            const studentSubjects = getSubjectsForStudent(student, selectedSection);
+            const total = studentSubjects.reduce((acc, subject) => acc + getScoreTotal(student.scores[subject]), 0);
+            const average = studentSubjects.length > 0 ? total / studentSubjects.length : 0;
+            return { studentId: student.id, name: student.name, total, average, stream: student.stream };
         });
 
         studentTotals.sort((a, b) => b.total - a.total);
@@ -217,188 +374,115 @@ const App: React.FC = () => {
             ...studentResult,
             position: index + 1,
         }));
-    }, [subjects]);
+    }, [selectedSection]);
 
 
-    const handleGenerateAIRemarks = async (): Promise<Student[]> => {
+    const handleGenerateAIRemarks = useCallback(async (): Promise<Student[]> => {
         setIsGeneratingRemarks(true);
-        let updatedStudents = [...students];
+        let updatedStudents = [...studentsForClass];
 
         try {
-            const calculatedResults = calculateResults(students);
+            const calculatedResults = calculateResults(studentsForClass);
 
-            const studentDataForPrompt = students.map(student => {
+            const studentDataForPrompt = studentsForClass.map(student => {
                 const result = calculatedResults.find(r => r.studentId === student.id);
                 if (!result) return null;
-                const scoresSummary = subjects.map(subject => {
+                const studentSubjects = getSubjectsForStudent(student, selectedSection);
+                const scoresSummary = studentSubjects.map(subject => {
                     const total = getScoreTotal(student.scores[subject]);
                     return `${subject}: ${total}/100`;
                 }).join(', ');
 
                 return {
-                    id: student.id,
-                    name: student.name,
-                    admissionNo: student.admissionNo,
-                    position: `${result.position} out of ${students.length}`,
+                    id: student.id, name: student.name,
+                    position: `${result.position} out of ${studentsForClass.length}`,
                     average: `${result.average.toFixed(2)}%`,
+                    attendance: `${student.totalAttendance} out of ${totalSchoolDays} days`,
                     scores: scoresSummary
                 };
             }).filter(Boolean);
 
             if (studentDataForPrompt.length === 0) {
                 setIsGeneratingRemarks(false);
-                return students;
+                return studentsForClass;
             }
             
             const prompt = `You are a thoughtful and encouraging Form Master writing report card remarks for a class of students.
-            Here is the data for multiple students:
-            ${JSON.stringify(studentDataForPrompt, null, 2)}
-            
-            Based on this data, for each student, write a personalized and constructive "Form Master's Remark" of about 2-4 sentences. Mention their overall performance (e.g., "excellent," "good," " commendable," "steady academic development"), their rank, and highlight a few subjects where they showed strong performance. Be positive, encouraging, and professional.
-            
-            Return the result as a JSON array of objects, where each object has "studentId" (use the "id" from the input data) and "remark".
-            Example for one student: { "studentId": "1", "remark": "Maintained excellent standards throughout the session, achieving 85.3%. Placed 1st in class ranking. Showed strong performance in Security Education, History, Social Studies and English Studies." }`;
+            Here is the data for multiple students: ${JSON.stringify(studentDataForPrompt, null, 2)}
+            Based on this data, for each student, write a personalized and constructive "Form Master's Remark" of about 2-4 sentences.
+            Mention their overall performance. Highlight 2-3 strong subjects. If attendance is low, gently mention its importance. The tone must be positive, encouraging, and professional.
+            Return the result as a JSON array of objects, where each object has "studentId" and "remark".`;
 
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
+                model: 'gemini-2.5-flash', contents: prompt,
                 config: {
                     responseMimeType: "application/json",
                     responseSchema: {
-                        type: Type.ARRAY,
+                        type: 'ARRAY',
                         items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                studentId: { type: Type.STRING },
-                                remark: { type: Type.STRING },
-                            },
-                            required: ["studentId", "remark"],
+                            type: 'OBJECT', properties: { studentId: { type: 'STRING' }, remark: { type: 'STRING' } }, required: ["studentId", "remark"],
                         },
                     },
                 },
             });
             
             const remarksData: { studentId: string, remark: string }[] = JSON.parse(response.text.trim());
-
-            updatedStudents = students.map(student => {
+            updatedStudents = studentsForClass.map(student => {
                 const remarkData = remarksData.find(r => r.studentId === student.id);
                 return remarkData ? { ...student, remark: remarkData.remark } : student;
             });
-
-            setStudents(updatedStudents);
+            setStudentsByClass(prev => ({ ...prev, [classKey]: updatedStudents }));
 
         } catch (error) {
             console.error("Error generating AI remarks:", error);
             alert("Failed to generate AI remarks. Please check your API key or network connection. Falling back to simple remarks.");
-            const calculatedResults = calculateResults(students);
-            updatedStudents = students.map(student => {
+            const calculatedResults = calculateResults(studentsForClass);
+            updatedStudents = studentsForClass.map(student => {
                 const result = calculatedResults.find(r => r.studentId === student.id);
-                if (result) {
-                    const fallbackRemark = result.average >= 75 ? 'Excellent academic performance.' : result.average >= 65 ? 'Very good academic progress.' : result.average >= 50 ? 'Good effort this term.' : 'Shows potential for improvement with more focus.';
-                    return { ...student, remark: fallbackRemark };
-                }
-                return student;
+                const fallbackRemark = result ? (result.average >= 75 ? 'Excellent performance.' : result.average >= 50 ? 'Good effort.' : 'Needs improvement.') : 'N/A';
+                return { ...student, remark: fallbackRemark };
             });
-            setStudents(updatedStudents);
+            setStudentsByClass(prev => ({ ...prev, [classKey]: updatedStudents }));
         } finally {
             setIsGeneratingRemarks(false);
         }
         return updatedStudents;
-    };
+    }, [studentsForClass, calculateResults, totalSchoolDays, selectedSection, classKey]);
 
-
-    const handleGenerateReports = async () => {
+    const handleGenerateReports = useCallback(async () => {
         setIsGenerating(true);
-        
-        const remarksMissing = students.some(s => !s.remark || s.remark.trim() === '');
-        let studentsForReport = students;
-
+        const remarksMissing = studentsForClass.some(s => !s.remark || s.remark.trim() === '');
+        let studentsForReport = studentsForClass;
         if (remarksMissing) {
             studentsForReport = await handleGenerateAIRemarks();
         }
-
         const calculated = calculateResults(studentsForReport);
-        const finalResults = calculated.map(res => {
-            const student = studentsForReport.find(s => s.id === res.studentId);
-            return {
-                ...res,
-                remark: student?.remark || 'N/A',
-            };
-        });
+        const finalResults = calculated.map(res => ({
+            ...res, remark: studentsForReport.find(s => s.id === res.studentId)?.remark || 'N/A',
+        }));
         setResults(finalResults);
+        setDocumentToRender('reportCard');
+    }, [studentsForClass, calculateResults, handleGenerateAIRemarks]);
 
-        setTimeout(async () => {
-            if (reportRef.current) {
-                try {
-                    const reportElements = reportRef.current.querySelectorAll('.report-card-page');
-                     if (reportElements.length === 0) {
-                        alert("No students to generate reports for.");
-                        setIsGenerating(false);
-                        return;
-                    }
-                    const pdf = new jsPDF('p', 'mm', 'a4');
-                    
-                    for (let i = 0; i < reportElements.length; i++) {
-                        const element = reportElements[i] as HTMLElement;
-                        const canvas = await html2canvas(element, { scale: 2, useCORS: true });
-                        const imgData = canvas.toDataURL('image/png');
-                        const pdfWidth = pdf.internal.pageSize.getWidth();
-                        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-                        
-                        if (i > 0) {
-                            pdf.addPage();
-                        }
-                        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                    }
-                    
-                    pdf.save(`report-cards-${selectedLevel}${selectedArm}-${session.replace('/', '-')}.pdf`);
-                } catch (error) {
-                    console.error("Error generating PDF:", error);
-                    alert("There was an error generating the PDF. Please check the console for details.");
-                }
-            }
-            setIsGenerating(false);
-        }, 1000);
-    };
-
-    const handleGenerateSubjectWiseAIComment = async (subject: string) => {
+    const handleGenerateSubjectWiseAIComment = useCallback(async (subject: string) => {
         setSubjectWiseAIComment('Generating comment...');
-        const totalStudents = students.length;
+        const totalStudents = studentsForClass.length;
         if (totalStudents === 0) {
             setSubjectWiseAIComment('No students in the class.');
             return;
         }
-
-        const subjectScores = students.map(s => getScoreTotal(s.scores[subject]));
+        const subjectScores = studentsForClass.map(s => getScoreTotal(s.scores[subject]));
         const classAverage = subjectScores.reduce((a, b) => a + b, 0) / totalStudents;
-        
         const gradeCounts = subjectScores.reduce((acc, score) => {
             const { grade } = getGradeInfo(score);
             acc[grade] = (acc[grade] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
-
-        const failingCount = gradeCounts['F9'] || 0;
-        const passRate = ((totalStudents - failingCount) / totalStudents) * 100;
-        
         const gradeDistributionString = Object.entries(gradeCounts).map(([grade, count]) => `${grade}: ${count}`).join(', ');
 
         const prompt = `You are an experienced head of department writing a summary for a subject-wise performance report.
-        Subject: ${subject}
-        Class: ${selectedLevel}${selectedArm}
-        Total Students: ${totalStudents}
-        
-        Performance Summary:
-        - Class Average Score: ${classAverage.toFixed(1)}%
-        - Pass Rate: ${passRate.toFixed(1)}%
-        - Grade Distribution: ${gradeDistributionString}
-        
-        Based on this detailed statistical data, write a professional and insightful "General Comments" paragraph of about 4-5 sentences.
-        Summarize the overall class performance in ${subject}. Mention the number of high-achievers and the number of students who are struggling.
-        Conclude with a recommendation for the class, such as suggesting targeted interventions for struggling students and continued support for high achievers to enhance overall class performance.
-        The tone should be formal, analytical, and encouraging.
-        
-        Example Comment: "The class has shown a diverse range of performance in English Studies. 31 students (88.6%) have performed well, achieving grades of B or higher. However, 2 students (5.7%) are struggling and need significant support. The overall pass rate of 94.3% indicates that while many students are meeting the basic requirements, there is room for improvement. Targeted interventions for struggling students and continued support for high achievers are recommended to enhance overall class performance."`;
+        Subject: ${subject}, Class: ${classKey}, Total Students: ${totalStudents}, Class Average Score: ${classAverage.toFixed(1)}%, Grade Distribution: ${gradeDistributionString}.
+        Based on this data, write a professional and insightful "General Comments" paragraph. Summarize the overall performance, mention high-achievers and struggling students, and conclude with a recommendation.`;
 
          try {
             const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
@@ -407,101 +491,33 @@ const App: React.FC = () => {
             console.error("Error generating subject-wise AI comment:", error);
             setSubjectWiseAIComment("Failed to generate AI comment. Please check your connection or API key.");
         }
-    };
+    }, [studentsForClass, classKey]);
     
-    const handleGenerateSubjectReport = async () => {
+    const handleGenerateSubjectReport = useCallback(async () => {
         if (!selectedSubjectForReport) {
             alert("Please select a subject to generate a report for.");
             return;
         }
         setIsGeneratingSubjectReport(true);
         await handleGenerateSubjectWiseAIComment(selectedSubjectForReport);
+        setDocumentToRender('subjectReport');
+    }, [selectedSubjectForReport, handleGenerateSubjectWiseAIComment]);
 
-        setTimeout(async () => {
-            if (subjectReportRef.current) {
-                try {
-                    const pageElements = subjectReportRef.current.querySelectorAll('.subject-report-page');
-                    if (pageElements.length === 0) {
-                        alert("No data to generate report.");
-                        setIsGeneratingSubjectReport(false);
-                        return;
-                    }
-                    const pdf = new jsPDF('p', 'mm', 'a4');
-                    for (let i = 0; i < pageElements.length; i++) {
-                        const element = pageElements[i] as HTMLElement;
-                        const canvas = await html2canvas(element, { scale: 2, useCORS: true });
-                        const imgData = canvas.toDataURL('image/jpeg', 0.9);
-                        const pdfWidth = pdf.internal.pageSize.getWidth();
-                        const pdfHeight = pdf.internal.pageSize.getHeight();
-                        const canvasWidth = canvas.width;
-                        const canvasHeight = canvas.height;
-                        const ratio = canvasWidth / canvasHeight;
-                        const pdfRatio = pdfWidth / pdfHeight;
-
-                        let finalWidth, finalHeight;
-                        if (ratio > pdfRatio) {
-                          finalWidth = pdfWidth;
-                          finalHeight = pdfWidth / ratio;
-                        } else {
-                          finalHeight = pdfHeight;
-                          finalWidth = pdfHeight * ratio;
-                        }
-                        
-                        if (i > 0) pdf.addPage();
-                        pdf.addImage(imgData, 'JPEG', 0, 0, finalWidth, finalHeight);
-                    }
-                    pdf.save(`subject-report-${selectedSubjectForReport.replace(/\s+/g, '-')}-${selectedLevel}${selectedArm}.pdf`);
-                } catch (error) {
-                    console.error("Error generating subject-wise PDF:", error);
-                    alert("There was an error generating the subject-wise PDF.");
-                }
-            }
-            setIsGeneratingSubjectReport(false);
-            setSubjectWiseAIComment('');
-        }, 1500); 
-    };
-
-     const handleGenerateBroadsheetAIAnalysis = async (results: Result[], subjectStats: any) => {
+     const handleGenerateBroadsheetAIAnalysis = useCallback(async (results: Result[], subjectStats: any) => {
         setBroadsheetAIAnalysis('Generating analysis...');
-        const totalStudents = students.length;
+        const totalStudents = studentsForClass.length;
         const passCount = results.filter(r => r.average >= 40).length;
         const passRate = (passCount / totalStudents) * 100;
         const performanceDistribution = {
             exceptional: results.filter(r => r.average >= 80).length,
-            veryGood: results.filter(r => r.average >= 70 && r.average < 80).length,
-            good: results.filter(r => r.average >= 60 && r.average < 70).length,
+            good: results.filter(r => r.average >= 60 && r.average < 80).length,
             fair: results.filter(r => r.average >= 50 && r.average < 60).length,
             poor: results.filter(r => r.average < 50).length,
         };
-
-        const highPerformingSubjects = Object.entries(subjectStats).filter(([, stats]: [string, any]) => stats.average >= 70).map(([sub]) => sub);
-        const lowPerformingSubjects = Object.entries(subjectStats).filter(([, stats]: [string, any]) => stats.average < 50).map(([sub]) => sub);
-
         const prompt = `You are a school principal writing a "Comprehensive Performance Analysis" for a class broadsheet.
-        Class: ${selectedLevel}${selectedArm}
-        Session: ${session}, Term: ${term}
-        Total Students: ${totalStudents}
-
-        Overall Class Performance Assessment:
-        - Pass Rate: ${passRate.toFixed(2)}%
-        - Performance Distribution: ${performanceDistribution.exceptional} students achieved exceptional results (80%+), ${performanceDistribution.veryGood} demonstrated very good performance (70-79%), ${performanceDistribution.good} showed good performance (60-69%), ${performanceDistribution.fair} had fair results (50-59%), and ${performanceDistribution.poor} struggled academically (<50%).
-
-        Subject Performance Analysis:
-        - High-performing subjects (average > 70%): ${highPerformingSubjects.join(', ') || 'None'}
-        - Subjects requiring immediate intervention (average < 50%): ${lowPerformingSubjects.join(', ') || 'None'}
-        
-        Performance Distribution Insights:
-        - ${((performanceDistribution.exceptional + performanceDistribution.veryGood) / totalStudents * 100).toFixed(2)}% of students are top performers.
-        - ${((performanceDistribution.fair + performanceDistribution.poor) / totalStudents * 100).toFixed(2)}% require additional academic support.
-        
-        Based on this data, provide a detailed analysis.
-        1. Start with an "Overall Class Performance Assessment".
-        2. Follow with "Subject Performance Analysis", highlighting strong and weak subjects.
-        3. Give "Performance Distribution Insights".
-        4. Identify any "Performance Patterns and Potential Issues", like multiple subject failures.
-        5. Conclude with concrete "Recommendations" such as targeted remedial programs, personalized learning, reviewing teaching methodologies, and encouraging peer learning.
-        The tone should be formal, analytical, and actionable.`;
-
+        Class: ${classKey}, Session: ${session}, Term: ${term}, Total Students: ${totalStudents}, Pass Rate: ${passRate.toFixed(2)}%.
+        Performance Distribution: ${performanceDistribution.exceptional} exceptional, ${performanceDistribution.good} good, ${performanceDistribution.fair} fair, ${performanceDistribution.poor} poor.
+        Provide a detailed analysis covering: Overall Assessment, Subject Performance, Distribution Insights, and actionable Recommendations.`;
         try {
             const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
             setBroadsheetAIAnalysis(response.text);
@@ -509,15 +525,14 @@ const App: React.FC = () => {
             console.error("Error generating broadsheet AI analysis:", error);
             setBroadsheetAIAnalysis("Failed to generate AI analysis. Please check your connection or API key.");
         }
-    };
+    }, [studentsForClass.length, classKey, session, term]);
     
-    const handleGenerateBroadsheet = async () => {
+    const handleGenerateBroadsheet = useCallback(async () => {
         setIsGeneratingBroadsheet(true);
-        const calculatedResults = calculateResults(students);
+        const calculatedResults = calculateResults(studentsForClass);
         setBroadsheetResults(calculatedResults);
-
-        const subjectStats = subjects.reduce((acc, subject) => {
-            const scores = students.map(s => getScoreTotal(s.scores[subject])).filter(s => typeof s === 'number');
+        const subjectStats = subjectsForClass.reduce((acc, subject) => {
+            const scores = studentsForClass.map(s => getScoreTotal(s.scores[subject])).filter(s => typeof s === 'number');
             if (scores.length > 0) {
                 acc[subject] = {
                     average: scores.reduce((a, b) => a + b, 0) / scores.length,
@@ -527,139 +542,109 @@ const App: React.FC = () => {
             }
             return acc;
         }, {} as any);
-
         await handleGenerateBroadsheetAIAnalysis(calculatedResults, subjectStats);
+        setDocumentToRender('broadsheet');
+    }, [calculateResults, studentsForClass, subjectsForClass, handleGenerateBroadsheetAIAnalysis]);
 
-        setTimeout(async () => {
-            if (broadsheetRef.current) {
-                try {
-                    const pageElements = broadsheetRef.current.querySelectorAll('.broadsheet-page');
-                    const pdf = new jsPDF('l', 'mm', 'a4');
-                    
-                    for (let i = 0; i < pageElements.length; i++) {
-                        const element = pageElements[i] as HTMLElement;
-                        const canvas = await html2canvas(element, { scale: 2, useCORS: true });
-                        const imgData = canvas.toDataURL('image/png', 0.95);
-                        const pdfWidth = pdf.internal.pageSize.getWidth();
-                        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-                        if (i > 0) pdf.addPage();
-                        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                    }
-                    pdf.save(`broadsheet-${selectedLevel}${selectedArm}-${session.replace('/', '-')}.pdf`);
-                } catch (error) {
-                    console.error("Error generating broadsheet PDF:", error);
-                    alert("There was an error generating the broadsheet PDF.");
-                }
-            }
-            setIsGeneratingBroadsheet(false);
-            setBroadsheetAIAnalysis('');
-        }, 1500);
-    };
-
-    const handleAddPayment = (studentId: string, payment: Omit<Payment, 'id' | 'receiptNo' | 'invoiceNo' | 'date'>) => {
+    const handleAddPayment = useCallback((studentId: string, payment: Omit<Payment, 'id' | 'receiptNo' | 'invoiceNo' | 'date'>) => {
         const timestamp = Date.now();
         const fullPayment: Payment = {
-            id: `PAY-${timestamp}`,
-            receiptNo: `PMT-${timestamp.toString(36).toUpperCase()}`,
-            invoiceNo: `INV-${timestamp.toString(36).toUpperCase()}`,
-            date: new Date().toISOString(),
-            ...payment,
+            id: `PAY-${timestamp}`, receiptNo: `PMT-${timestamp.toString(36).toUpperCase()}`,
+            invoiceNo: `INV-${timestamp.toString(36).toUpperCase()}`, date: new Date().toISOString(), ...payment,
         };
-        const updatedStudents = students.map(s => {
-            if (s.id === studentId) {
-                return { ...s, payments: [...(s.payments || []), fullPayment] };
-            }
-            return s;
-        });
-        setStudents(updatedStudents);
-    };
+        handleStudentChange({ ...studentsForClass.find(s => s.id === studentId)!, payments: [...(studentsForClass.find(s => s.id === studentId)?.payments || []), fullPayment] });
+    }, [studentsForClass, handleStudentChange]);
 
-    const handlePrintReceipt = (studentId: string, paymentId: string) => {
-        const student = students.find(s => s.id === studentId);
+    const handlePrintReceipt = useCallback((studentId: string, paymentId: string) => {
+        const student = studentsForClass.find(s => s.id === studentId);
         const payment = student?.payments?.find(p => p.id === paymentId);
-
         if (student && payment) {
             setIsGeneratingReceipt(true);
             setStudentForReceipt(student);
             setPaymentForReceipt(payment);
-            
-            setTimeout(async () => {
-                if(receiptRef.current) {
-                    try {
-                        const canvas = await html2canvas(receiptRef.current, { scale: 3, useCORS: true });
-                        const imgData = canvas.toDataURL('image/png');
-                        const pdf = new jsPDF('p', 'mm', [80, 160]); // Custom size for receipt
-                        const pdfWidth = pdf.internal.pageSize.getWidth();
-                        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-                        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                        pdf.save(`receipt-${student.name.replace(/\s/g, '_')}-${payment.receiptNo}.pdf`);
-                    } catch (error) {
-                        console.error("Error generating receipt PDF:", error);
-                        alert("Could not generate receipt PDF.");
-                    } finally {
-                        setIsGeneratingReceipt(false);
-                        setStudentForReceipt(null);
-                        setPaymentForReceipt(null);
-                    }
-                }
-            }, 500);
+            setDocumentToRender('receipt');
         }
-    };
+    }, [studentsForClass]);
     
-    const handleGenerateInvoice = (studentId: string) => {
+    const handleGenerateInvoice = useCallback((studentId: string) => {
         const timestamp = Date.now();
         const totalRequired = feeItems.filter(f => f.type === 'required').reduce((sum, f) => sum + f.amount, 0);
         const totalOptional = feeItems.filter(f => f.type === 'optional').reduce((sum, f) => sum + f.amount, 0);
         const newInvoice: Invoice = {
-            id: `INV-${timestamp}`,
-            invoiceNo: `INV-${timestamp.toString(36).toUpperCase()}`,
-            date: new Date().toISOString(),
-            studentId,
-            feeItems,
-            totalRequired,
-            totalOptional,
+            id: `INV-${timestamp}`, invoiceNo: `INV-${timestamp.toString(36).toUpperCase()}`,
+            date: new Date().toISOString(), studentId, feeItems, totalRequired, totalOptional,
             totalAmount: totalRequired + totalOptional,
         };
-        const updatedStudents = students.map(s => {
-            if (s.id === studentId) {
-                return { ...s, invoices: [...(s.invoices || []), newInvoice] };
-            }
-            return s;
-        });
-        setStudents(updatedStudents);
-    };
+        handleStudentChange({ ...studentsForClass.find(s => s.id === studentId)!, invoices: [...(studentsForClass.find(s => s.id === studentId)?.invoices || []), newInvoice] });
+    }, [feeItems, studentsForClass, handleStudentChange]);
     
-    const handlePrintInvoice = (studentId: string, invoiceId: string) => {
-        const student = students.find(s => s.id === studentId);
+    const handlePrintInvoice = useCallback((studentId: string, invoiceId: string) => {
+        const student = studentsForClass.find(s => s.id === studentId);
         const invoice = student?.invoices?.find(i => i.id === invoiceId);
-
         if (student && invoice) {
             setIsGeneratingInvoice(true);
             setStudentForInvoice(student);
             setInvoiceForPrinting(invoice);
+            setDocumentToRender('invoice');
+        }
+    }, [studentsForClass]);
+
+
+    useEffect(() => {
+        if (!documentToRender) return;
+
+        const generate = async () => {
+            // A short delay to allow React to render the component off-screen
+            await new Promise(resolve => setTimeout(resolve, 100));
             
-            setTimeout(async () => {
-                if (invoiceRef.current) {
-                    try {
-                        const canvas = await html2canvas(invoiceRef.current, { scale: 3, useCORS: true });
-                        const imgData = canvas.toDataURL('image/png');
-                        const pdf = new jsPDF('p', 'mm', 'a4');
-                        const pdfWidth = pdf.internal.pageSize.getWidth();
-                        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-                        pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth - 20, pdfHeight - 20);
-                        pdf.save(`invoice-${student.name.replace(/\s/g, '_')}-${invoice.invoiceNo}.pdf`);
-                    } catch (error) {
-                        console.error("Error generating invoice PDF:", error);
-                        alert("Could not generate invoice PDF.");
-                    } finally {
-                        setIsGeneratingInvoice(false);
+            try {
+                switch (documentToRender) {
+                    case 'reportCard':
+                        await generatePdf(reportRef, `report-cards-${classKey}.pdf`, 'p');
+                        break;
+                    case 'subjectReport':
+                        await generatePdf(subjectReportRef, `subject-report-${selectedSubjectForReport.replace(/\s+/g, '-')}-${classKey}.pdf`, 'p');
+                        setSubjectWiseAIComment('');
+                        break;
+                    case 'broadsheet':
+                        await generatePdf(broadsheetRef, `broadsheet-${classKey}.pdf`, 'l');
+                        setBroadsheetAIAnalysis('');
+                        break;
+                    case 'receipt':
+                        if (studentForReceipt && paymentForReceipt) {
+                            await generatePdf(receiptRef, `receipt-${studentForReceipt.name.replace(/\s/g, '_')}-${paymentForReceipt.receiptNo}.pdf`, 'p', [80, 160]);
+                        }
+                        setStudentForReceipt(null);
+                        setPaymentForReceipt(null);
+                        break;
+                    case 'invoice':
+                        if (studentForInvoice && invoiceForPrinting) {
+                            await generatePdf(invoiceRef, `invoice-${studentForInvoice.name.replace(/\s/g, '_')}-${invoiceForPrinting.invoiceNo}.pdf`, 'p');
+                        }
                         setStudentForInvoice(null);
                         setInvoiceForPrinting(null);
-                    }
+                        break;
+                    default:
+                        break;
                 }
-            }, 500);
-        }
-    };
+            } catch (error) {
+                console.error(`Error generating PDF for ${documentToRender}:`, error);
+                alert("An error occurred while generating the PDF.");
+            } finally {
+                // Reset all generating states
+                setIsGenerating(false);
+                setIsGeneratingSubjectReport(false);
+                setIsGeneratingBroadsheet(false);
+                setIsGeneratingReceipt(false);
+                setIsGeneratingInvoice(false);
+                // Unmount the component
+                setDocumentToRender(null);
+            }
+        };
+
+        generate();
+    }, [documentToRender, classKey, selectedSubjectForReport, studentForReceipt, paymentForReceipt, studentForInvoice, invoiceForPrinting]);
+
 
     if (!currentUser) return null;
 
@@ -679,157 +664,167 @@ const App: React.FC = () => {
                 />
                 
                 <div className="mt-8">
-                    {currentStep === 'dashboard' && (
-                        <Dashboard
-                            students={students}
-                            subjects={subjects}
-                            classInfo={{ level: selectedLevel, arm: selectedArm }}
-                            onNavigate={(step) => setCurrentStep(step)}
-                        />
-                    )}
+                    <Suspense fallback={
+                        <div className="flex justify-center items-center py-20">
+                            <SpinnerIcon className="w-10 h-10 text-sky-600" />
+                        </div>
+                    }>
+                        {currentStep === 'dashboard' && (
+                            <Dashboard
+                                students={studentsForClass}
+                                subjects={teacherSubjectsForSelectedClass}
+                                classInfo={{ level: validLevel, arm: validArm }}
+                                onNavigate={(step) => setCurrentStep(step)}
+                            />
+                        )}
 
-                    {currentStep === 'setup' && (
-                        <SetupStep
-                            levels={levels}
-                            arms={arms}
-                            selectedLevel={selectedLevel}
-                            selectedArm={selectedArm}
-                            onLevelChange={setSelectedLevel}
-                            onArmChange={setSelectedArm}
-                            subjects={subjects}
-                            setSubjects={setSubjects}
-                            students={students}
-                            onAddStudent={handleAddStudent}
-                            onRemoveStudent={handleRemoveStudent}
-                            onStudentChange={handleStudentChange}
-                            feeItems={feeItems}
-                            setFeeItems={setFeeItems}
-                        />
-                    )}
+                        {currentStep === 'setup' && (
+                            <SetupStep
+                                levels={availableLevels}
+                                arms={availableArms}
+                                selectedLevel={validLevel}
+                                selectedArm={validArm}
+                                onLevelChange={setSelectedLevel}
+                                onArmChange={setSelectedArm}
+                                subjects={subjectsForClass}
+                                students={studentsForClass}
+                                onAddStudent={handleAddStudent}
+                                onRemoveStudent={handleRemoveStudent}
+                                onStudentChange={handleStudentChange}
+                                feeItems={feeItems}
+                                setFeeItems={setFeeItems}
+                                currentUser={currentUser}
+                                clearAllData={clearAllData}
+                                selectedSection={selectedSection}
+                                onSectionChange={setSelectedSection}
+                                selectedStream={selectedStream}
+                                onStreamChange={setSelectedStream}
+                            />
+                        )}
 
-                    {currentStep === 'templates' && (
-                        <TemplatesStep
-                            settings={templateSettings}
-                            setSettings={handleTemplateSettingsChange}
-                        />
-                    )}
+                        {currentStep === 'templates' && (
+                            <TemplatesStep
+                                settings={templateSettings}
+                                setSettings={handleSettingsChange}
+                            />
+                        )}
 
-                    {currentStep === 'scores' && (
-                        <ScoreEntryStep
-                            students={students}
-                            subjects={subjects}
-                            selectedSubject={selectedSubjectForEntry}
-                            onSelectSubject={setSelectedSubjectForEntry}
-                            onStudentChange={handleStudentChange}
-                            classInfo={{ level: selectedLevel, arm: selectedArm }}
-                        />
-                    )}
+                        {currentStep === 'scores' && (
+                            <ScoreEntryStep
+                                students={students}
+                                subjects={teacherSubjectsForSelectedClass}
+                                selectedSubject={selectedSubjectForEntry}
+                                onSelectSubject={setSelectedSubjectForEntry}
+                                onStudentChange={handleStudentChange}
+                                classInfo={{ level: validLevel, arm: validArm }}
+                                selectedSection={selectedSection}
+                            />
+                        )}
 
-                    {currentStep === 'invoicing' && (
-                        <InvoicingStep
-                            students={students}
-                            classInfo={{ level: selectedLevel, arm: selectedArm, session, term }}
-                            onGenerateInvoice={handleGenerateInvoice}
-                            onPrintInvoice={handlePrintInvoice}
-                            isGeneratingInvoice={isGeneratingInvoice}
-                        />
-                    )}
+                        {currentStep === 'invoicing' && (
+                            <InvoicingStep
+                                students={studentsForClass}
+                                classInfo={{ level: validLevel, arm: validArm, session, term }}
+                                onGenerateInvoice={handleGenerateInvoice}
+                                onPrintInvoice={handlePrintInvoice}
+                                isGeneratingInvoice={isGeneratingInvoice}
+                            />
+                        )}
 
-                    {currentStep === 'payments' && (
-                        <PaymentsStep
-                            students={students}
-                            classInfo={{ level: selectedLevel, arm: selectedArm, session, term }}
-                            onAddPayment={handleAddPayment}
-                            onPrintReceipt={handlePrintReceipt}
-                            isGeneratingReceipt={isGeneratingReceipt}
-                        />
-                    )}
+                        {currentStep === 'payments' && (
+                            <PaymentsStep
+                                students={studentsForClass}
+                                classInfo={{ level: validLevel, arm: validArm, session, term }}
+                                onAddPayment={handleAddPayment}
+                                onPrintReceipt={handlePrintReceipt}
+                                isGeneratingReceipt={isGeneratingReceipt}
+                            />
+                        )}
 
-                    {currentStep === 'finalize' && (
-                        <FinalizeStep
-                            students={students}
-                            subjects={subjects}
-                            onStudentChange={handleStudentChange}
-                            classInfo={{ level: selectedLevel, arm: selectedArm }}
-                            reportSettings={{
-                                nextTermBegins, setNextTermBegins,
-                                term, setTerm,
-                                session, setSession,
-                                principalRemark, setPrincipalRemark,
-                                totalSchoolDays, setTotalSchoolDays
-                            }}
-                            actions={{
-                                handleGenerateAIRemarks,
-                                handleGenerateReports,
-                                isGenerating,
-                                isGeneratingRemarks,
-                                handleGenerateSubjectReport,
-                                isGeneratingSubjectReport,
-                                selectedSubjectForReport,
-                                setSelectedSubjectForReport,
-                                handleGenerateBroadsheet,
-                                isGeneratingBroadsheet,
-                            }}
-                        />
-                    )}
-                    
-                    {currentStep === 'guide' && (
-                        <SystemGuide />
-                    )}
+                        {currentStep === 'finalize' && (
+                            <FinalizeStep
+                                students={studentsForClass}
+                                subjects={subjectsForClass}
+                                onStudentChange={handleStudentChange}
+                                classInfo={{ level: validLevel, arm: validArm }}
+                                reportSettings={{
+                                    nextTermBegins, setNextTermBegins,
+                                    term, setTerm,
+                                    session, setSession,
+                                    principalRemark, setPrincipalRemark,
+                                    totalSchoolDays, setTotalSchoolDays
+                                }}
+                                actions={{
+                                    handleGenerateAIRemarks,
+                                    handleGenerateReports,
+                                    isGenerating,
+                                    isGeneratingRemarks,
+                                    handleGenerateSubjectReport,
+                                    isGeneratingSubjectReport,
+                                    selectedSubjectForReport,
+                                    setSelectedSubjectForReport,
+                                    handleGenerateBroadsheet,
+                                    isGeneratingBroadsheet,
+                                }}
+                            />
+                        )}
+                        
+                        {currentStep === 'guide' && <SystemGuide />}
 
-                    {currentStep === 'access_control' && (
-                        <AccessControlStep
-                            permissions={permissions}
-                            setPermissions={setPermissions}
-                        />
-                    )}
+                        {currentStep === 'access_control' && (
+                            <AccessControlStep
+                                permissions={permissions}
+                                setPermissions={setPermissions}
+                            />
+                        )}
+                    </Suspense>
                 </div>
 
                 <div className="absolute -left-[9999px] top-auto" aria-hidden="true">
-                  <ResultsDisplay 
+                  {documentToRender === 'reportCard' && <ResultsDisplay 
                       ref={reportRef}
                       results={results}
-                      studentData={students}
-                      subjects={subjects}
-                      classInfo={{ level: selectedLevel, arm: selectedArm, term, session }}
+                      studentData={studentsForClass}
+                      allSubjects={subjectsForClass}
+                      classInfo={{ level: validLevel, arm: validArm, term, session, section: sectionName }}
                       nextTermBegins={nextTermBegins}
                       principalRemark={principalRemark}
                       totalSchoolDays={totalSchoolDays}
                       templateSettings={templateSettings.reportCard}
-                  />
-                  <SubjectWiseReport
+                  />}
+                  {documentToRender === 'subjectReport' && <SubjectWiseReport
                       ref={subjectReportRef}
-                      students={students}
+                      students={studentsForClass}
                       subject={selectedSubjectForReport}
-                      classInfo={{ level: selectedLevel, arm: selectedArm, session }}
+                      classInfo={{ level: validLevel, arm: validArm, session }}
                       aiComment={subjectWiseAIComment}
                       templateSettings={templateSettings.subjectWise}
                       schoolName={templateSettings.reportCard.schoolName}
-                  />
-                  <BroadsheetReport
+                  />}
+                  {documentToRender === 'broadsheet' && <BroadsheetReport
                         ref={broadsheetRef}
-                        students={students}
-                        subjects={subjects}
+                        students={studentsForClass}
+                        subjects={subjectsForClass}
                         results={broadsheetResults}
-                        classInfo={{ level: selectedLevel, arm: selectedArm, session, term: term }}
+                        classInfo={{ level: validLevel, arm: validArm, session, term: term }}
                         aiAnalysis={broadsheetAIAnalysis}
                         templateSettings={templateSettings.broadsheet}
                         schoolName={templateSettings.reportCard.schoolName}
-                    />
-                    <PaymentReceipt
+                    />}
+                    {documentToRender === 'receipt' && <PaymentReceipt
                         ref={receiptRef}
                         student={studentForReceipt}
                         payment={paymentForReceipt}
-                        classInfo={{ level: selectedLevel, arm: selectedArm, session, term }}
+                        classInfo={{ level: validLevel, arm: validArm, session, term }}
                         schoolInfo={templateSettings.reportCard}
-                    />
-                    <SchoolFeesInvoice
+                    />}
+                    {documentToRender === 'invoice' && <SchoolFeesInvoice
                         ref={invoiceRef}
                         student={studentForInvoice}
                         invoice={invoiceForPrinting}
-                        classInfo={{ level: selectedLevel, arm: selectedArm, session, term }}
+                        classInfo={{ level: validLevel, arm: validArm, session, term }}
                         schoolInfo={templateSettings.reportCard}
-                    />
+                    />}
                 </div>
             </main>
         </div>

@@ -1,4 +1,5 @@
 
+
 export type ScorePart = number | 'ABS' | null;
 
 export interface ScoreBreakdown {
@@ -38,6 +39,8 @@ export interface Invoice {
   totalAmount: number;
 }
 
+export type Rating = 'A' | 'B' | 'C' | 'D' | 'E' | '';
+
 export interface Student {
   id:string;
   name: string;
@@ -51,6 +54,9 @@ export interface Student {
   remark?: string;
   payments?: Payment[];
   invoices?: Invoice[];
+  stream?: 'Science' | 'Art' | 'Commerce';
+  affectiveDomain?: Record<string, Rating>;
+  psychomotorSkills?: Record<string, Rating>;
 }
 
 export interface Result {
@@ -60,6 +66,7 @@ export interface Result {
   average: number;
   position: number;
   remark?: string;
+  stream?: 'Science' | 'Art' | 'Commerce';
 }
 
 export interface SchoolInfo {
@@ -94,7 +101,7 @@ export interface TemplateSettings {
   broadsheet: BroadsheetTemplateSettings;
 }
 
-export type Role = 'admin' | 'teacher' | 'student' | 'parent';
+export type Role = 'admin' | 'teacher' | 'accountant' | 'student' | 'parent';
 
 export type Permission = 
   | 'dashboard'
@@ -103,7 +110,7 @@ export type Permission =
   | 'scores'
   | 'invoicing'
   | 'payments'
-  | 'reports'
+  | 'finalize'
   | 'guide'
   | 'access_control';
 
@@ -115,4 +122,5 @@ export interface User {
   email: string;
   password: string; // In a real app, this would be a hash
   role: Role;
+  assignedClasses?: { classKey: string; subjects: string[] }[];
 }

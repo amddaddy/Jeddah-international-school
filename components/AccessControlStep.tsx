@@ -6,6 +6,7 @@ import ShieldCheckIcon from './icons/ShieldCheckIcon';
 import AcademicCapIcon from './icons/AcademicCapIcon';
 import UserIcon from './icons/UserIcon';
 import UserGroupIcon from './icons/UserGroupIcon';
+import CurrencyDollarIcon from './icons/CurrencyDollarIcon';
 
 interface AccessControlStepProps {
     permissions: Permissions;
@@ -15,6 +16,7 @@ interface AccessControlStepProps {
 const roleDetails: Record<Role, { name: string; icon: React.ReactNode }> = {
     admin: { name: 'Admin', icon: <ShieldCheckIcon className="w-6 h-6 text-slate-500" /> },
     teacher: { name: 'Teacher', icon: <AcademicCapIcon className="w-6 h-6 text-slate-500" /> },
+    accountant: { name: 'Accountant', icon: <CurrencyDollarIcon className="w-6 h-6 text-slate-500" /> },
     student: { name: 'Student', icon: <UserIcon className="w-6 h-6 text-slate-500" /> },
     parent: { name: 'Parent', icon: <UserGroupIcon className="w-6 h-6 text-slate-500" /> },
 };
@@ -26,7 +28,7 @@ const permissionDetails: Record<Permission, { name: string }> = {
     scores: { name: 'Score Entry' },
     invoicing: { name: 'Invoicing' },
     payments: { name: 'Payments' },
-    reports: { name: 'Report Generation' },
+    finalize: { name: 'Report Generation' },
     guide: { name: 'System Guide' },
     access_control: { name: 'Access Control' },
 };
