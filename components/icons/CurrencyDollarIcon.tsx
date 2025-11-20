@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 const CurrencyDollarIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (

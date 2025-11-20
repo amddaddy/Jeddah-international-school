@@ -1,30 +1,33 @@
-import React from 'react';
-import { Role, Permissions } from '../types';
+import React, { useMemo } from 'react';
+import { User } from '../types';
 
-type Step = 'dashboard' | 'setup' | 'templates' | 'scores' | 'invoicing' | 'payments' | 'finalize' | 'guide' | 'access_control';
+type Step = 'dashboard' | 'setup' | 'templates' | 'scores' | 'invoicing' | 'payments' | 'finalize' | 'guide' | 'access_control' | 'dev_admin_tools';
 
 interface WorkflowTabsProps {
   currentStep: Step;
   setCurrentStep: (step: Step) => void;
-  userRole: Role;
-  permissions: Permissions;
+  currentUser: User | null;
 }
 
-const WorkflowTabs: React.FC<WorkflowTabsProps> = ({ currentStep, setCurrentStep, userRole, permissions }) => {
-  const allTabs = [
-    { id: 'dashboard', name: 'Dashboard' },
-    { id: 'setup', name: 'Setup' },
-    { id: 'templates', name: 'Templates' },
-    { id: 'scores', name: 'Scores' },
-    { id: 'invoicing', name: 'Invoicing' },
-    { id: 'payments', name: 'Payments' },
-    { id: 'finalize', name: 'Reports' },
-    { id: 'guide', name: 'System Guide' },
-    { id: 'access_control', name: 'Access Control' },
-  ];
+const WorkflowTabs: React.FC<WorkflowTabsProps> = ({ currentStep, setCurrentStep, currentUser }) => {
 
-  const userPermissions = permissions[userRole] || {};
-  const visibleTabs = allTabs.filter(tab => userPermissions[tab.id as keyof typeof userPermissions]);
+  const allTabs = useMemo(() => [
+    { id: 'dashboard', name: 'Dashboard', permission: 'view_dashboard' },
+    { id: 'setup', name: 'Setup', permission: 'manage_students' },
+    { id: 'templates', name: 'Templates', permission: 'customize_templates' },
+    { id: 'scores', name: 'Scores', permission: 'enter_scores' },
+    { id: 'invoicing', name: 'Invoicing', permission: 'generate_invoices' },
+    { id: 'payments', name: 'Payments', permission: 'record_payments' },
+    { id: 'finalize', name: 'Reports', permission: 'finalize_reports' },
+    { id: 'guide', name: 'System Guide', permission: 'view_guide' },
+    { id: 'access_control', name: 'Access Control', permission: 'view_access_control' },
+    { id: 'dev_admin_tools', name: 'Dev Admin', permission: 'dev_admin_tools' },
+  ], []);
+
+  const visibleTabs = useMemo(() => {
+    if (!currentUser) return [];
+    return allTabs.filter(tab => currentUser.permissions[tab.permission as keyof User['permissions']]);
+  }, [currentUser, allTabs]);
 
   const getTabClass = (tabId: Step) => {
     const baseClass = "px-4 py-3 text-sm font-semibold rounded-t-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors whitespace-nowrap";

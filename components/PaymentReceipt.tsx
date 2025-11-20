@@ -1,6 +1,5 @@
 import React, { forwardRef } from 'react';
 import { Student, Payment, ReportCardTemplateSettings } from '../types';
-import { SCHOOL_LOGO_BASE64 } from './assets';
 import { generateQrCodeUrl } from '../utils';
 
 interface PaymentReceiptProps {
@@ -8,9 +7,10 @@ interface PaymentReceiptProps {
     payment: Payment | null;
     classInfo: { level: string; arm: string; session: string; term: string };
     schoolInfo: ReportCardTemplateSettings;
+    logo: string;
 }
 
-const PaymentReceipt = forwardRef<HTMLDivElement, PaymentReceiptProps>(({ student, payment, classInfo, schoolInfo }, ref) => {
+const PaymentReceipt = forwardRef<HTMLDivElement, PaymentReceiptProps>(({ student, payment, classInfo, schoolInfo, logo }, ref) => {
     if (!student || !payment || !schoolInfo) {
         return null;
     }
@@ -30,7 +30,7 @@ const PaymentReceipt = forwardRef<HTMLDivElement, PaymentReceiptProps>(({ studen
     return (
         <div ref={ref} className="bg-white text-black p-4 font-sans" style={{ width: '80mm' }}>
             <div className="text-center">
-                <img src={SCHOOL_LOGO_BASE64} alt="School Logo" className="h-16 w-16 mx-auto mb-2 object-contain" />
+                <img src={logo} alt="School Logo" className="h-16 w-16 mx-auto mb-2 object-contain" />
                 <h1 className="font-bold text-lg uppercase">{schoolInfo.schoolName}</h1>
                 <p className="text-xs">{schoolInfo.schoolAddress}</p>
                 <p className="text-xs">{schoolInfo.contactInfo}</p>

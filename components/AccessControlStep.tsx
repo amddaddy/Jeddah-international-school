@@ -1,98 +1,107 @@
-
 import React from 'react';
-import { Permissions, Role, Permission } from '../types';
+import { User, Permission } from '../types';
 import Card from './Card';
+import UsersIcon from './icons/UsersIcon';
 import ShieldCheckIcon from './icons/ShieldCheckIcon';
 import AcademicCapIcon from './icons/AcademicCapIcon';
-import UserIcon from './icons/UserIcon';
 import UserGroupIcon from './icons/UserGroupIcon';
-import CurrencyDollarIcon from './icons/CurrencyDollarIcon';
 
-interface AccessControlStepProps {
-    permissions: Permissions;
-    setPermissions: React.Dispatch<React.SetStateAction<Permissions>>;
-}
+export const ALL_PERMISSIONS: { id: Permission; name: string; description: string }[] = [
+    { id: 'view_dashboard', name: 'View Dashboard', description: 'Can see the main dashboard with stats and actions.' },
+    { id: 'manage_students', name: 'Manage Students', description: 'Can add, edit, and remove students from the roster.' },
+    { id: 'manage_subjects', name: 'Manage Subjects', description: 'Can add and remove subjects for the school.' },
+    { id: 'manage_fees', name: 'Manage Fees', description: 'Can set and update the school fee structure.' },
+    { id: 'enter_scores', name: 'Enter Scores', description: 'Can input and modify student scores for tests and exams.' },
+    { id: 'generate_invoices', name: 'Generate Invoices', description: 'Can create and issue school fee invoices.' },
+    { id: 'record_payments', name: 'Record Payments', description: 'Can record payments made by students and print receipts.' },
+    { id: 'finalize_reports', name: 'Finalize & Generate Reports', description: 'Can finalize data, generate AI remarks, and download all reports.' },
+    { id: 'customize_templates', name: 'Customize Templates', description: 'Can modify the appearance and content of report templates.' },
+    { id: 'view_guide', name: 'View System Guide', description: 'Can access the system workflow guide.' },
+    { id: 'view_access_control', name: 'View Access Control', description: 'Can view this permissions table.' },
+    { id: 'dev_admin_tools', name: 'Developer Admin Tools', description: 'Can create, view, and remove Administrator accounts.' },
+];
 
-const roleDetails: Record<Role, { name: string; icon: React.ReactNode }> = {
-    admin: { name: 'Admin', icon: <ShieldCheckIcon className="w-6 h-6 text-slate-500" /> },
-    teacher: { name: 'Teacher', icon: <AcademicCapIcon className="w-6 h-6 text-slate-500" /> },
-    accountant: { name: 'Accountant', icon: <CurrencyDollarIcon className="w-6 h-6 text-slate-500" /> },
-    student: { name: 'Student', icon: <UserIcon className="w-6 h-6 text-slate-500" /> },
-    parent: { name: 'Parent', icon: <UserGroupIcon className="w-6 h-6 text-slate-500" /> },
+const ROLE_DETAILS = {
+    dev_admin: { name: 'Developer Admin', icon: <ShieldCheckIcon className="w-6 h-6 text-violet-600" />, description: "Full system access, including managing other administrators. This role is for technical oversight." },
+    admin: { name: 'Administrator', icon: <AcademicCapIcon className="w-6 h-6 text-sky-600" />, description: "Full access to all school management features, from student setup to financial records and report generation." },
+    teacher: { name: 'Teacher', icon: <UserGroupIcon className="w-6 h-6 text-green-600" />, description: "Limited access primarily for academic tasks, such as viewing the dashboard and entering student scores." }
 };
 
-const permissionDetails: Record<Permission, { name: string }> = {
-    dashboard: { name: 'Dashboard' },
-    setup: { name: 'Setup (Class & Students)' },
-    templates: { name: 'Templates' },
-    scores: { name: 'Score Entry' },
-    invoicing: { name: 'Invoicing' },
-    payments: { name: 'Payments' },
-    finalize: { name: 'Report Generation' },
-    guide: { name: 'System Guide' },
-    access_control: { name: 'Access Control' },
-};
 
-const AccessControlStep: React.FC<AccessControlStepProps> = ({ permissions, setPermissions }) => {
+const AccessControlStep: React.FC<{ currentUser: User }> = ({ currentUser }) => {
+  const isDevAdmin = currentUser.role === 'dev_admin';
+  const isAdmin = currentUser.role === 'admin';
 
-    const handlePermissionChange = (role: Role, permission: Permission, value: boolean) => {
-        if (role === 'admin') return; // Admins permissions cannot be changed
-        setPermissions(prev => ({
-            ...prev,
-            [role]: {
-                ...prev[role],
-                [permission]: value,
-            },
-        }));
-    };
-
-    const Toggle = ({ checked, onChange, disabled }: { checked: boolean, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, disabled?: boolean }) => (
-        <label className="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled} className="sr-only peer" />
-            <div className={`w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-sky-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600 ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}></div>
-        </label>
-    );
-
-    return (
-        <Card title="User Role & Access Management">
-            <p className="mb-6 text-slate-600">
-                Define permissions for each user role to ensure users only have access to necessary features.
-                Admins have full access by default.
-            </p>
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-slate-600">
-                        <tr>
-                            <th className="p-4 font-semibold rounded-tl-lg">Role</th>
-                            {Object.values(permissionDetails).map(p => (
-                                <th key={p.name} className="p-4 font-semibold text-center">{p.name}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {(Object.keys(permissions) as Role[]).map((role, roleIndex) => (
-                            <tr key={role} className="border-b border-slate-200 last:border-b-0">
-                                <td className="p-4 font-bold text-slate-800 whitespace-nowrap">
-                                    <div className="flex items-center gap-3">
-                                        {roleDetails[role].icon}
-                                        <span>{roleDetails[role].name}</span>
-                                    </div>
-                                </td>
-                                {(Object.keys(permissionDetails) as Permission[]).map(permission => (
-                                    <td key={permission} className="p-4 text-center">
-                                        <Toggle
-                                            checked={permissions[role][permission]}
-                                            onChange={(e) => handlePermissionChange(role, permission, e.target.checked)}
-                                            disabled={role === 'admin'}
-                                        />
-                                    </td>
-                                ))}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+  return (
+    <div className="space-y-8">
+      <Card title="Role-Based Access Control">
+        <p className="text-slate-600 mb-6">
+          This system uses role-based permissions to ensure data security and appropriate access levels. Below is a breakdown of what each role can do. Permissions for Admins and Teachers are read-only and cannot be changed.
+        </p>
+        <div className="space-y-6">
+          {Object.entries(ROLE_DETAILS).map(([roleId, details]) => (
+            <div key={roleId} className="border border-slate-200 rounded-lg p-4">
+              <div className="flex items-center mb-3">
+                <div className="p-2 bg-slate-100 rounded-full mr-3">{details.icon}</div>
+                <div>
+                  <h3 className="font-bold text-lg text-slate-800">{details.name}</h3>
+                  <p className="text-sm text-slate-500">{details.description}</p>
+                </div>
+              </div>
             </div>
-        </Card>
+          ))}
+        </div>
+      </Card>
+      
+      <Card title="Permissions Details">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-100 text-slate-600">
+              <tr>
+                <th className="p-3 text-left font-semibold">Permission</th>
+                <th className="p-3 text-center font-semibold">Developer Admin</th>
+                <th className="p-3 text-center font-semibold">Administrator</th>
+                <th className="p-3 text-center font-semibold">Teacher</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ALL_PERMISSIONS.map(permission => (
+                <tr key={permission.id} className="border-b border-slate-200 hover:bg-slate-50">
+                  <td className="p-3">
+                    <p className="font-medium text-slate-800">{permission.name}</p>
+                    <p className="text-xs text-slate-500">{permission.description}</p>
+                  </td>
+                  <td className="p-3 text-center">
+                    <Checkmark enabled={true} />
+                  </td>
+                  <td className="p-3 text-center">
+                     <Checkmark enabled={permission.id !== 'dev_admin_tools'} />
+                  </td>
+                   <td className="p-3 text-center">
+                    <Checkmark enabled={['view_dashboard', 'enter_scores', 'view_guide'].includes(permission.id)} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+const Checkmark: React.FC<{ enabled: boolean }> = ({ enabled }) => {
+    if (enabled) {
+        return (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mx-auto" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+        );
+    }
+    return (
+         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-300 mx-auto" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        </svg>
     );
 };
 

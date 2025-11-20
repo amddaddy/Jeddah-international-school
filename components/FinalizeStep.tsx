@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Student, ScorePart, ScoreBreakdown } from '../types';
 import Card from './Card';

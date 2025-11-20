@@ -1,5 +1,6 @@
+// Use `import type` to only import type definitions, not the full library.
+import type React from 'react';
 import { ScoreBreakdown, Student } from './types';
-import React from 'react';
 
 // --- SUBJECT MANAGEMENT ---
 
@@ -98,9 +99,16 @@ export const generatePdf = async (
             const { default: jsPDF } = await import('jspdf');
             const { default: html2canvas } = await import('html2canvas');
 
-            const pageElements = ref.current.querySelectorAll('.report-card-page, .subject-report-page, .broadsheet-page');
+            const pageElements = ref.current.querySelectorAll('.report-card-page, .subject-report-page, .broadsheet-page, .receipt-page, .invoice-page');
             if (pageElements.length === 0) {
-                alert("No content found to generate a PDF.");
+                 const singleElement = ref.current;
+                 const canvas = await html2canvas(singleElement, { scale: 2, useCORS: true });
+                 const pdf = new jsPDF(orientation, 'mm', format);
+                 const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                 const pdfWidth = pdf.internal.pageSize.getWidth();
+                 const pdfHeight = pdf.internal.pageSize.getHeight();
+                 pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+                 pdf.save(filename);
                 return;
             }
 
@@ -114,23 +122,12 @@ export const generatePdf = async (
 
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pdfHeight = pdf.internal.pageSize.getHeight();
-                const canvasWidth = canvas.width;
-                const canvasHeight = canvas.height;
-                const ratio = canvasWidth / canvasHeight;
-
-                let finalWidth = pdfWidth;
-                let finalHeight = pdfWidth / ratio;
-                
-                if (finalHeight > pdfHeight) {
-                    finalHeight = pdfHeight;
-                    finalWidth = pdfHeight * ratio;
-                }
                 
                 if (i > 0) {
                     pdf.addPage();
                 }
 
-                pdf.addImage(imgData, 'JPEG', 0, 0, finalWidth, finalHeight);
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
             }
             pdf.save(filename);
         } catch (error) {

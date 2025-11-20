@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Student, FeeItem, User } from '../types';
 import Card from './Card';
@@ -126,12 +125,11 @@ interface SetupStepProps {
     onStudentChange: (student: Student) => void;
     feeItems: FeeItem[];
     setFeeItems: React.Dispatch<React.SetStateAction<FeeItem[]>>;
-    currentUser: User;
-    clearAllData: () => void;
     selectedSection: 'Junior' | 'Senior';
     onSectionChange: (section: 'Junior' | 'Senior') => void;
     selectedStream: 'All' | 'Science' | 'Art' | 'Commerce';
     onStreamChange: (stream: 'All' | 'Science' | 'Art' | 'Commerce') => void;
+    currentUser: User;
 }
 
 const SetupStep: React.FC<SetupStepProps> = ({
@@ -139,12 +137,11 @@ const SetupStep: React.FC<SetupStepProps> = ({
     subjects,
     students, onAddStudent, onRemoveStudent, onStudentChange,
     feeItems, setFeeItems,
-    currentUser, clearAllData,
-    selectedSection, onSectionChange, selectedStream, onStreamChange
+    selectedSection, onSectionChange, selectedStream, onStreamChange,
+    currentUser
 }) => {
     const [studentToRemove, setStudentToRemove] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
     const isSeniorClass = selectedSection === 'Senior';
 
     const handleRequestRemove = useCallback((id: string) => {
@@ -156,11 +153,6 @@ const SetupStep: React.FC<SetupStepProps> = ({
             onRemoveStudent(studentToRemove);
             setStudentToRemove(null);
         }
-    };
-
-    const handleConfirmReset = () => {
-        clearAllData();
-        setIsResetConfirmOpen(false);
     };
 
     const filteredStudents = useMemo(() => {
@@ -244,27 +236,6 @@ const SetupStep: React.FC<SetupStepProps> = ({
         </Card>
         
         <FeeStructureManager feeItems={feeItems} setFeeItems={setFeeItems} />
-        
-        {currentUser.role === 'admin' && (
-            <Card title="Danger Zone">
-              <div className="p-4 border border-red-300 bg-red-50 rounded-lg">
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                  <div>
-                    <h3 className="font-bold text-red-800">Reset Application</h3>
-                    <p className="text-sm text-red-700 mt-1 max-w-lg">
-                      This will permanently delete all users, students, scores, and settings. The application will be restored to its initial setup state. This action cannot be undone.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setIsResetConfirmOpen(true)}
-                    className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 whitespace-nowrap self-start sm:self-center"
-                  >
-                    Clear All Data
-                  </button>
-                </div>
-              </div>
-            </Card>
-        )}
       </div>
        <ConfirmationDialog
             isOpen={!!studentToRemove}
@@ -273,15 +244,6 @@ const SetupStep: React.FC<SetupStepProps> = ({
             title="Confirm Student Removal"
             message={`Are you sure you want to remove the student "${students.find(s => s.id === studentToRemove)?.name}"? This action cannot be undone.`}
             confirmButtonText="Remove"
-            confirmButtonVariant="danger"
-        />
-        <ConfirmationDialog
-            isOpen={isResetConfirmOpen}
-            onClose={() => setIsResetConfirmOpen(false)}
-            onConfirm={handleConfirmReset}
-            title="Confirm Application Reset"
-            message="Are you absolutely sure you want to proceed? All data will be permanently erased."
-            confirmButtonText="Yes, Reset Everything"
             confirmButtonVariant="danger"
         />
     </div>

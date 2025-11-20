@@ -2,7 +2,6 @@ import React, { forwardRef } from 'react';
 import { Result, Student, ReportCardTemplateSettings } from '../types';
 import PhotoIcon from './icons/PhotoIcon';
 import { getScoreTotal, getGradeInfo, getOrdinalSuffix, getSubjectsForStudent, generateQrCodeUrl } from '../utils';
-import { SCHOOL_LOGO_BASE64 } from './assets';
 import { AFFECTIVE_DOMAIN_SKILLS, PSYCHOMOTOR_SKILLS, RATING_SCALE } from './BehavioralRatingsManager';
 
 interface ResultsDisplayProps {
@@ -14,6 +13,7 @@ interface ResultsDisplayProps {
   principalRemark: string;
   totalSchoolDays: string;
   templateSettings: ReportCardTemplateSettings;
+  logo: string;
 }
 
 const getGradeColor = (grade: string) => {
@@ -25,7 +25,7 @@ const getGradeColor = (grade: string) => {
     return 'text-red-600 font-bold';
 };
 
-const ResultsDisplay = forwardRef<HTMLDivElement, ResultsDisplayProps>(({ results, studentData, allSubjects, classInfo, nextTermBegins, principalRemark, totalSchoolDays, templateSettings }, ref) => {
+const ResultsDisplay = forwardRef<HTMLDivElement, ResultsDisplayProps>(({ results, studentData, allSubjects, classInfo, nextTermBegins, principalRemark, totalSchoolDays, templateSettings, logo }, ref) => {
 
     if (results.length === 0) return null;
 
@@ -53,7 +53,7 @@ const ResultsDisplay = forwardRef<HTMLDivElement, ResultsDisplayProps>(({ result
                     <div key={result.studentId} className="report-card-page bg-white p-2 text-slate-800" style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', fontFamily: templateSettings.fontFamily }}>
                         <div className="border-2 border-slate-700 p-3 min-h-[290mm] flex flex-col">
                             <header className="flex items-center justify-between border-b-2 border-slate-700 pb-2">
-                                <img src={SCHOOL_LOGO_BASE64} alt="School Logo" className="h-24 w-24 object-contain" />
+                                <img src={logo} alt="School Logo" className="h-24 w-24 object-contain" />
                                 <div className="text-center">
                                     <h1 className="text-3xl font-bold uppercase text-slate-800">{templateSettings.schoolName}</h1>
                                     <p className="text-base font-medium">{templateSettings.schoolAddress}</p>

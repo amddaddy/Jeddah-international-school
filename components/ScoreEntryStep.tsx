@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Student, ScorePart, ScoreBreakdown } from '../types';
 import Card from './Card';
@@ -28,19 +27,41 @@ const ScoreEntryRow: React.FC<ScoreEntryRowProps> = React.memo(({ student, subje
             secondCA: currentScores.secondCA === null ? '' : String(currentScores.secondCA),
             exam: currentScores.exam === null ? '' : String(currentScores.exam),
         });
+        setErrors({ firstCA: false, secondCA: false, exam: false });
     }, [student.scores, subject]);
 
     const validateScore = (part: keyof ScoreBreakdown, value: string): boolean => {
-        if (value.toUpperCase() === 'ABS' || value === '') return true;
-        const num = parseInt(value, 10);
-        if (isNaN(num) || num < 0) return false;
-        if (part === 'firstCA' || part === 'secondCA') return num <= 20;
-        if (part === 'exam') return num <= 60;
-        return true;
+        const upperValue = value.trim().toUpperCase();
+        if (upperValue === 'ABS' || upperValue === '') {
+            return true;
+        }
+
+        // Regex to check if it's a non-negative integer string
+        if (!/^\d+$/.test(value.trim())) {
+            return false;
+        }
+        
+        const num = parseInt(value.trim(), 10);
+        
+        if (isNaN(num)) { // Should be redundant due to regex, but safe
+            return false;
+        }
+
+        if (part === 'firstCA' || part === 'secondCA') {
+            return num <= 20;
+        }
+        
+        if (part === 'exam') {
+            return num <= 60;
+        }
+
+        return false; // Should not happen with valid parts
     };
 
     const handleLocalChange = (part: keyof ScoreBreakdown, value: string) => {
         setLocalScores(prev => ({ ...prev, [part]: value }));
+        const isValid = validateScore(part, value);
+        setErrors(prev => ({ ...prev, [part]: !isValid }));
     };
 
     const handleBlur = (part: keyof ScoreBreakdown) => {
@@ -51,7 +72,9 @@ const ScoreEntryRow: React.FC<ScoreEntryRowProps> = React.memo(({ student, subje
         if (isValid) {
             const newScores = { ...student.scores };
             const subjectScores = newScores[subject] || { firstCA: null, secondCA: null, exam: null };
-            const numericValue = value.toUpperCase() === 'ABS' ? 'ABS' : (value === '' ? null : parseInt(value, 10));
+            const trimmedValue = value.trim();
+            const upperValue = trimmedValue.toUpperCase();
+            const numericValue = upperValue === 'ABS' ? 'ABS' : (trimmedValue === '' ? null : parseInt(trimmedValue, 10));
             
             if(subjectScores[part] !== numericValue) {
                 subjectScores[part] = numericValue;

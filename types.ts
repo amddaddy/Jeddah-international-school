@@ -1,5 +1,4 @@
 
-
 export type ScorePart = number | 'ABS' | null;
 
 export interface ScoreBreakdown {
@@ -43,6 +42,8 @@ export type Rating = 'A' | 'B' | 'C' | 'D' | 'E' | '';
 
 export interface Student {
   id:string;
+  schoolId: string; // Link student to a specific school
+  classId: string; // e.g., "SS 1-A"
   name: string;
   admissionNo?: string;
   gender?: 'Male' | 'Female' | '';
@@ -69,18 +70,28 @@ export interface Result {
   stream?: 'Science' | 'Art' | 'Commerce';
 }
 
-export interface SchoolInfo {
-  schoolName: string;
-  schoolAddress: string;
+export interface School {
+  id: string;
+  name: string;
+  email: string; // Contact email for the school
+  address: string;
   contactInfo: string;
+  logo: string;
+  status: 'active' | 'suspended';
+  subscriptionExpiry?: string;
+  dateRegistered: string;
 }
 
-export interface ReportCardTemplateSettings extends SchoolInfo {
+export interface ReportCardTemplateSettings {
   fontFamily: 'Arial' | 'Times New Roman' | 'Verdana';
   showGradeAnalysis: boolean;
   showQRCode: boolean;
   showClassPosition: boolean;
   showPromotionStatus: boolean;
+  // These overrides are now derived from the School object, but kept for template specific tweaks if needed
+  schoolName?: string; 
+  schoolAddress?: string;
+  contactInfo?: string;
 }
 
 export interface SubjectReportTemplateSettings {
@@ -101,26 +112,32 @@ export interface TemplateSettings {
   broadsheet: BroadsheetTemplateSettings;
 }
 
-export type Role = 'admin' | 'teacher' | 'accountant' | 'student' | 'parent';
+// --- AUTHENTICATION & USER MANAGEMENT ---
 
-export type Permission = 
-  | 'dashboard'
-  | 'setup'
-  | 'templates'
-  | 'scores'
-  | 'invoicing'
-  | 'payments'
-  | 'finalize'
-  | 'guide'
-  | 'access_control';
+export type Role = 'dev_admin' | 'admin' | 'teacher';
 
-export type Permissions = Record<Role, Record<Permission, boolean>>;
+export type Permission =
+  | 'manage_students'
+  | 'manage_subjects'
+  | 'manage_fees'
+  | 'enter_scores'
+  | 'generate_invoices'
+  | 'record_payments'
+  | 'finalize_reports'
+  | 'customize_templates'
+  | 'view_dashboard'
+  | 'view_guide'
+  | 'view_access_control'
+  | 'dev_admin_tools';
+
+export type Permissions = Record<Permission, boolean>;
 
 export interface User {
   id: string;
+  schoolId: string; // Link user to a school. 'global' for dev_admin.
   name: string;
   email: string;
-  password: string; // In a real app, this would be a hash
+  password?: string; 
   role: Role;
-  assignedClasses?: { classKey: string; subjects: string[] }[];
+  permissions: Permissions;
 }

@@ -1,0 +1,1 @@
+// This file is intentionally blank as Firebase has been completely removed from the project.

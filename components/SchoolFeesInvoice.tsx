@@ -1,7 +1,5 @@
-
 import React, { forwardRef } from 'react';
 import { Student, Invoice, ReportCardTemplateSettings } from '../types';
-import { SCHOOL_LOGO_BASE64 } from './assets';
 import { generateQrCodeUrl } from '../utils';
 
 interface SchoolFeesInvoiceProps {
@@ -9,9 +7,10 @@ interface SchoolFeesInvoiceProps {
     invoice: Invoice | null;
     classInfo: { level: string; arm: string; session: string; term: string };
     schoolInfo: ReportCardTemplateSettings;
+    logo: string;
 }
 
-const SchoolFeesInvoice = forwardRef<HTMLDivElement, SchoolFeesInvoiceProps>(({ student, invoice, classInfo, schoolInfo }, ref) => {
+const SchoolFeesInvoice = forwardRef<HTMLDivElement, SchoolFeesInvoiceProps>(({ student, invoice, classInfo, schoolInfo, logo }, ref) => {
     if (!student || !invoice || !schoolInfo) return null;
 
     const formatCurrency = (amount: number) => `₦${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -30,7 +29,7 @@ const SchoolFeesInvoice = forwardRef<HTMLDivElement, SchoolFeesInvoiceProps>(({ 
     return (
         <div ref={ref} className="bg-white text-black p-6 font-['Arial']" style={{ width: '210mm', minHeight: '297mm' }}>
             <div className="text-center mb-4">
-                <img src={SCHOOL_LOGO_BASE64} alt="School Logo" className="h-20 w-20 mx-auto mb-2 object-contain" />
+                <img src={logo} alt="School Logo" className="h-20 w-20 mx-auto mb-2 object-contain" />
                 <h1 className="font-bold text-2xl uppercase">{schoolInfo.schoolName}</h1>
                 <p className="text-sm">{schoolInfo.schoolAddress}</p>
                 <p className="text-sm">{schoolInfo.contactInfo}</p>

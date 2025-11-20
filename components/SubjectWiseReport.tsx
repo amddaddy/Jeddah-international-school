@@ -1,4 +1,3 @@
-
 import React, { forwardRef, useMemo } from 'react';
 import { Student, SubjectReportTemplateSettings } from '../types';
 import { getScoreTotal, getGradeInfo, generateQrCodeUrl } from '../utils';
