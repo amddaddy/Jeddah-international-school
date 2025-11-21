@@ -6,15 +6,23 @@ import { SCHOOL_LOGO_BASE64 } from '../components/assets';
 
 interface LoginPageProps {
   onLogin: (email: string, pass: string) => boolean;
-  onRegister: (schoolName: string, email: string, pass: string) => boolean;
+  onRegister: (schoolName: string, address: string, schoolEmail: string, phone: string, email: string, pass: string) => boolean;
   logo?: string;
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister, logo }) => {
   const [isRegistering, setIsRegistering] = useState(false);
+  
+  // School Details
   const [schoolName, setSchoolName] = useState('');
+  const [address, setAddress] = useState('');
+  const [schoolEmail, setSchoolEmail] = useState('');
+  const [phone, setPhone] = useState('');
+
+  // Admin Credentials
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -29,7 +37,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister, logo }) => {
     setTimeout(() => {
       let success = false;
       if (isRegistering) {
-          success = onRegister(schoolName, email, password);
+          success = onRegister(schoolName, address, schoolEmail, phone, email, password);
       } else {
           success = onLogin(email, password);
       }
@@ -47,6 +55,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister, logo }) => {
       setEmail('');
       setPassword('');
       setSchoolName('');
+      setAddress('');
+      setSchoolEmail('');
+      setPhone('');
   }
 
   return (
@@ -60,28 +71,78 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister, logo }) => {
               <p className="text-slate-500 mt-1">{isRegistering ? 'Register Your School' : 'School Management Portal'}</p>
             </div>
             
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {isRegistering && (
-                <div>
-                    <label htmlFor="schoolName" className="block text-sm font-medium text-slate-700 mb-1">
-                    School Name
-                    </label>
-                    <input
-                    id="schoolName"
-                    name="schoolName"
-                    type="text"
-                    required={isRegistering}
-                    value={schoolName}
-                    onChange={(e) => setSchoolName(e.target.value)}
-                    placeholder="e.g., Spring Valley High"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                    />
-                </div>
+                <>
+                    <div>
+                        <label htmlFor="schoolName" className="block text-sm font-medium text-slate-700 mb-1">
+                        School Name
+                        </label>
+                        <input
+                        id="schoolName"
+                        name="schoolName"
+                        type="text"
+                        required={isRegistering}
+                        value={schoolName}
+                        onChange={(e) => setSchoolName(e.target.value)}
+                        placeholder="e.g., Spring Valley High"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="address" className="block text-sm font-medium text-slate-700 mb-1">
+                        School Address
+                        </label>
+                        <textarea
+                        id="address"
+                        name="address"
+                        required={isRegistering}
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="Full physical address"
+                        rows={2}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="schoolEmail" className="block text-sm font-medium text-slate-700 mb-1">
+                        School Official Email
+                        </label>
+                        <input
+                        id="schoolEmail"
+                        name="schoolEmail"
+                        type="email"
+                        required={isRegistering}
+                        value={schoolEmail}
+                        onChange={(e) => setSchoolEmail(e.target.value)}
+                        placeholder="info@school.com"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-1">
+                        Mobile Number(s)
+                        </label>
+                        <input
+                        id="phone"
+                        name="phone"
+                        type="text"
+                        required={isRegistering}
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="+123 456 7890"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                        />
+                    </div>
+                    <div className="border-t border-slate-200 pt-4 mt-4">
+                        <h3 className="text-sm font-bold text-slate-700 mb-2">Administrator Account</h3>
+                    </div>
+                </>
               )}
 
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
-                  {isRegistering ? 'Admin Email Address' : 'Email Address'}
+                  {isRegistering ? 'Admin Login Email' : 'Email Address'}
                 </label>
                 <input
                   id="email"
@@ -113,7 +174,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister, logo }) => {
               
               {isRegistering && (
                   <p className="text-xs text-slate-500">
-                      By registering, a new School Administrator account will be created for you.
+                      By registering, a new School Administrator account will be created linked to the school details above.
                   </p>
               )}
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Student, ScorePart, ScoreBreakdown } from '../types';
 import Card from './Card';
@@ -131,6 +132,60 @@ const ScoreEntryRow: React.FC<ScoreEntryRowProps> = React.memo(({ student, subje
     );
 });
 
+interface AttendanceEntryRowProps {
+    student: Student;
+    totalSchoolDays: number;
+    onStudentChange: (student: Student) => void;
+}
+
+const AttendanceEntryRow: React.FC<AttendanceEntryRowProps> = React.memo(({ student, totalSchoolDays, onStudentChange }) => {
+    const [attendance, setAttendance] = useState(String(student.totalAttendance || ''));
+
+    useEffect(() => {
+        setAttendance(String(student.totalAttendance || ''));
+    }, [student.totalAttendance]);
+
+    const handleChange = (val: string) => {
+        if (val === '' || /^\d+$/.test(val)) {
+            setAttendance(val);
+        }
+    };
+
+    const handleBlur = () => {
+        const num = parseInt(attendance, 10);
+        const validNum = isNaN(num) ? 0 : num;
+        
+        if (totalSchoolDays > 0 && validNum > totalSchoolDays) {
+            alert(`Attendance cannot exceed total school days (${totalSchoolDays}).`);
+            setAttendance(String(student.totalAttendance || ''));
+            return;
+        }
+
+        if (validNum !== student.totalAttendance) {
+            onStudentChange({ ...student, totalAttendance: validNum });
+        }
+    };
+
+    return (
+        <tr className="border-b border-slate-200 hover:bg-slate-50">
+            <td className="p-3 font-medium text-slate-800">{student.name}</td>
+            <td className="p-3 flex items-center justify-center">
+                <input
+                    type="text"
+                    value={attendance}
+                    onChange={(e) => handleChange(e.target.value)}
+                    onBlur={handleBlur}
+                    className="w-24 text-center px-2 py-1.5 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                    placeholder={`Max ${totalSchoolDays}`}
+                />
+            </td>
+             <td className="p-3 text-center text-sm text-slate-600">
+                {attendance && totalSchoolDays > 0 ? `${Math.round((parseInt(attendance || '0') / totalSchoolDays) * 100)}%` : '-'}
+            </td>
+        </tr>
+    );
+});
+
 
 interface ScoreEntryStepProps {
     students: Student[];
@@ -140,10 +195,11 @@ interface ScoreEntryStepProps {
     onStudentChange: (student: Student) => void;
     classInfo: { level: string; arm: string };
     selectedSection: 'Junior' | 'Senior';
+    totalSchoolDays: number;
 }
 
 const ScoreEntryStep: React.FC<ScoreEntryStepProps> = ({
-    students, subjects, selectedSubject, onSelectSubject, onStudentChange, classInfo, selectedSection
+    students, subjects, selectedSubject, onSelectSubject, onStudentChange, classInfo, selectedSection, totalSchoolDays
 }) => {
     
     if (subjects.length === 0) {
@@ -154,25 +210,55 @@ const ScoreEntryStep: React.FC<ScoreEntryStepProps> = ({
         )
     }
 
+    const isAttendanceMode = selectedSubject === 'ATTENDANCE_REGISTRY';
+
     return (
-        <Card title={`Enter Scores for ${classInfo.level} ${classInfo.arm}`}>
+        <Card title={isAttendanceMode ? `Register Attendance for ${classInfo.level} ${classInfo.arm}` : `Enter Scores for ${classInfo.level} ${classInfo.arm}`}>
             <div className="mb-6">
                 <label htmlFor="subject-select" className="block text-sm font-medium text-slate-700 mb-1">
-                    Select Subject to Enter Scores For:
+                    Select Subject or Activity:
                 </label>
                 <select
                     id="subject-select"
                     value={selectedSubject || ''}
                     onChange={(e) => onSelectSubject(e.target.value)}
-                    className="w-full md:w-1/2 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                    className="w-full md:w-1/2 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 font-medium text-slate-700"
                 >
-                    {subjects.map(subject => (
-                        <option key={subject} value={subject}>{subject}</option>
-                    ))}
+                    <option value="">-- Select Subject --</option>
+                    <optgroup label="Administrative">
+                        <option value="ATTENDANCE_REGISTRY">📝 Register Attendance</option>
+                    </optgroup>
+                    <optgroup label="Subjects">
+                        {subjects.map(subject => (
+                            <option key={subject} value={subject}>{subject}</option>
+                        ))}
+                    </optgroup>
                 </select>
             </div>
 
-            {selectedSubject && (
+            {isAttendanceMode ? (
+                 <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead className="bg-slate-100 text-slate-600">
+                            <tr>
+                                <th className="p-3 text-left font-semibold w-1/2">Student Name</th>
+                                <th className="p-3 text-center font-semibold">Days Present (Out of {totalSchoolDays})</th>
+                                <th className="p-3 text-center font-semibold">Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {students.map(student => (
+                                <AttendanceEntryRow
+                                    key={student.id}
+                                    student={student}
+                                    totalSchoolDays={totalSchoolDays}
+                                    onStudentChange={onStudentChange}
+                                />
+                            ))}
+                        </tbody>
+                    </table>
+                 </div>
+            ) : selectedSubject ? (
                  <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead className="bg-slate-100 text-slate-600">
@@ -185,7 +271,7 @@ const ScoreEntryStep: React.FC<ScoreEntryStepProps> = ({
                         </thead>
                         <tbody>
                             {students.map(student => {
-                                const studentSubjects = getSubjectsForStudent(student, selectedSection);
+                                const studentSubjects = getSubjectsForStudent(student, selectedSection, subjects);
                                 const isSubjectApplicable = studentSubjects.includes(selectedSubject);
                                 return (
                                     <ScoreEntryRow
@@ -200,6 +286,10 @@ const ScoreEntryStep: React.FC<ScoreEntryStepProps> = ({
                         </tbody>
                     </table>
                  </div>
+            ) : (
+                <div className="text-center py-12 text-slate-500 italic">
+                    Select a subject or 'Register Attendance' from the dropdown above to begin.
+                </div>
             )}
         </Card>
     );

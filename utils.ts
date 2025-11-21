@@ -1,3 +1,4 @@
+
 // Use `import type` to only import type definitions, not the full library.
 import type React from 'react';
 import { ScoreBreakdown, Student } from './types';
@@ -13,23 +14,39 @@ export const COMMERCE_SUBJECTS = ['Economics', 'Accounting', 'Commerce', 'Office
 
 export const ALL_SENIOR_SUBJECTS = [...new Set([...SENIOR_CORE_SUBJECTS, ...SCIENCE_SUBJECTS, ...ART_SUBJECTS, ...COMMERCE_SUBJECTS])];
 
-export const getSubjectsForStudent = (student: Student, section: 'Junior' | 'Senior'): string[] => {
+export const getSubjectsForStudent = (student: Student, section: 'Junior' | 'Senior', availableSubjects: string[] = []): string[] => {
+    // If no dynamic list provided, fall back to default constants (legacy behavior)
+    if (availableSubjects.length === 0) {
+        if (section === 'Junior') return JUNIOR_SUBJECTS;
+        availableSubjects = ALL_SENIOR_SUBJECTS;
+    }
+
     if (section === 'Junior') {
-        return JUNIOR_SUBJECTS;
+        // For Junior, we assume they take all available subjects registered for the class
+        return availableSubjects;
     }
-    if (!student.stream) {
-        return SENIOR_CORE_SUBJECTS; // Default if no stream is assigned
-    }
-    switch (student.stream) {
-        case 'Science':
-            return [...SENIOR_CORE_SUBJECTS, ...SCIENCE_SUBJECTS];
-        case 'Art':
-            return [...SENIOR_CORE_SUBJECTS, ...ART_SUBJECTS];
-        case 'Commerce':
-            return [...SENIOR_CORE_SUBJECTS, ...COMMERCE_SUBJECTS];
-        default:
-            return SENIOR_CORE_SUBJECTS;
-    }
+
+    // For Senior, we filter based on streams
+    const studentStream = student.stream;
+    
+    return availableSubjects.filter(subject => {
+        // 1. Always include Core subjects if they are in the available list
+        if (SENIOR_CORE_SUBJECTS.includes(subject)) return true;
+        
+        // 2. Include subjects specific to the student's stream
+        if (studentStream === 'Science' && SCIENCE_SUBJECTS.includes(subject)) return true;
+        if (studentStream === 'Art' && ART_SUBJECTS.includes(subject)) return true;
+        if (studentStream === 'Commerce' && COMMERCE_SUBJECTS.includes(subject)) return true;
+        
+        // 3. Include custom subjects (those not in the default ALL list)
+        // We treat custom subjects as "General" or "Elective" available to all streams
+        if (!ALL_SENIOR_SUBJECTS.includes(subject)) return true;
+        
+        // 4. If student has no stream, they only get Core + Custom
+        if (!studentStream) return false;
+
+        return false;
+    });
 };
 
 export const SUBJECT_ABBREVIATIONS: Record<string, string> = {

@@ -1,3 +1,4 @@
+
 import React, { forwardRef } from 'react';
 import { Student, Payment, ReportCardTemplateSettings } from '../types';
 import { generateQrCodeUrl } from '../utils';
@@ -28,59 +29,66 @@ const PaymentReceipt = forwardRef<HTMLDivElement, PaymentReceiptProps>(({ studen
     });
 
     return (
-        <div ref={ref} className="bg-white text-black p-4 font-sans" style={{ width: '80mm' }}>
-            <div className="text-center">
-                <img src={logo} alt="School Logo" className="h-16 w-16 mx-auto mb-2 object-contain" />
-                <h1 className="font-bold text-lg uppercase">{schoolInfo.schoolName}</h1>
-                <p className="text-xs">{schoolInfo.schoolAddress}</p>
-                <p className="text-xs">{schoolInfo.contactInfo}</p>
+        <div ref={ref} className="relative bg-white text-black p-4 font-sans" style={{ width: '80mm' }}>
+            {/* Watermark */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+                <img src={logo} alt="" className="w-[70%] h-[70%] object-contain opacity-5" />
             </div>
 
-            <hr className="border-dashed border-black my-2" />
-            
-            <div className="bg-gray-200 text-center py-1 my-2">
-                <h2 className="font-bold text-md">PAYMENT RECEIPT</h2>
+            <div className="relative z-10">
+                <div className="text-center">
+                    <img src={logo} alt="School Logo" className="h-16 w-16 mx-auto mb-2 object-contain" />
+                    <h1 className="font-bold text-lg uppercase">{schoolInfo.schoolName}</h1>
+                    <p className="text-xs">{schoolInfo.schoolAddress}</p>
+                    <p className="text-xs">{schoolInfo.contactInfo}</p>
+                </div>
+
+                <hr className="border-dashed border-black my-2" />
+                
+                <div className="bg-gray-200 text-center py-1 my-2">
+                    <h2 className="font-bold text-md">PAYMENT RECEIPT</h2>
+                </div>
+                
+                <div className="text-sm space-y-1">
+                    <p><strong>Receipt No:</strong> {payment.receiptNo}</p>
+                    <p><strong>Date:</strong> {new Date(payment.date).toLocaleString()}</p>
+                    <p><strong>Student:</strong> {student.name}</p>
+                    <p><strong>Class:</strong> {classInfo.level} {classInfo.arm}</p>
+                    <p><strong>Session:</strong> {classInfo.session}</p>
+                    <p><strong>Term:</strong> {classInfo.term}</p>
+                    <p><strong>Invoice No:</strong> {payment.invoiceNo}</p>
+                </div>
+                
+                <hr className="border-dashed border-black my-2" />
+
+                <div className="text-sm space-y-1">
+                    <p><strong>Total Bill:</strong> {formatCurrency(payment.totalBill)}</p>
+                </div>
+
+                <div className="bg-gray-200 py-1 my-2 text-sm">
+                    <p><strong>Paid:</strong> {formatCurrency(payment.amountPaid)}</p>
+                    <p><strong>Payment Method:</strong> {payment.paymentMethod}</p>
+                    <p><strong>Processed By:</strong> {payment.processedBy}</p>
+                </div>
+
+                <hr className="border-dashed border-black my-2" />
+
+                <div className="bg-gray-200 py-1 my-2 text-sm font-bold">
+                    <p><strong>Total Paid:</strong> {formatCurrency(payment.amountPaid)}</p>
+                    <p><strong>Balance:</strong> {formatCurrency(balance)}</p>
+                </div>
+                
+                <div className="text-center my-3">
+                    <img src={qrCodeUrl} alt="QR Code" className="w-24 h-24 mx-auto" crossOrigin="anonymous" />
+                    <p className="text-xs">Scan to verify payment</p>
+                </div>
+
+                <div className="text-center">
+                    <p className="font-bold">Thank you for your payment!</p>
+                    <p className="text-xs">www.{schoolInfo.schoolName.toLowerCase().replace(/\s+/g, '')}.intelps.cloud</p>
+                    <p className="text-xs italic">Computer generated receipt</p>
+                </div>
             </div>
-            
-            <div className="text-sm space-y-1">
-                <p><strong>Receipt No:</strong> {payment.receiptNo}</p>
-                <p><strong>Date:</strong> {new Date(payment.date).toLocaleString()}</p>
-                <p><strong>Student:</strong> {student.name}</p>
-                <p><strong>Class:</strong> {classInfo.level} {classInfo.arm}</p>
-                <p><strong>Session:</strong> {classInfo.session}</p>
-                <p><strong>Term:</strong> {classInfo.term}</p>
-                <p><strong>Invoice No:</strong> {payment.invoiceNo}</p>
-            </div>
-            
-            <hr className="border-dashed border-black my-2" />
-
-             <div className="text-sm space-y-1">
-                <p><strong>Total Bill:</strong> {formatCurrency(payment.totalBill)}</p>
-             </div>
-
-            <div className="bg-gray-200 py-1 my-2 text-sm">
-                <p><strong>Paid:</strong> {formatCurrency(payment.amountPaid)}</p>
-                <p><strong>Payment Method:</strong> {payment.paymentMethod}</p>
-                <p><strong>Processed By:</strong> {payment.processedBy}</p>
-            </div>
-
-             <hr className="border-dashed border-black my-2" />
-
-             <div className="bg-gray-200 py-1 my-2 text-sm font-bold">
-                 <p><strong>Total Paid:</strong> {formatCurrency(payment.amountPaid)}</p>
-                 <p><strong>Balance:</strong> {formatCurrency(balance)}</p>
-             </div>
-             
-             <div className="text-center my-3">
-                <img src={qrCodeUrl} alt="QR Code" className="w-24 h-24 mx-auto" crossOrigin="anonymous" />
-                <p className="text-xs">Scan to verify payment</p>
-             </div>
-
-             <div className="text-center">
-                <p className="font-bold">Thank you for your payment!</p>
-                <p className="text-xs">www.{schoolInfo.schoolName.toLowerCase().replace(/\s+/g, '')}.intelps.cloud</p>
-                <p className="text-xs italic">Computer generated receipt</p>
-             </div>
         </div>
     );
 });

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Student, FeeItem, User } from '../types';
 import Card from './Card';
@@ -9,7 +10,6 @@ import TrashIcon from './icons/TrashIcon';
 import PhotoIcon from './icons/PhotoIcon';
 import XIcon from './icons/XIcon';
 import ConfirmationDialog from './ConfirmationDialog';
-import { JUNIOR_SUBJECTS, ALL_SENIOR_SUBJECTS } from '../utils';
 
 interface StudentRowProps {
     student: Student;
@@ -28,7 +28,11 @@ const StudentRow: React.FC<StudentRowProps> = React.memo(({ student, onStudentCh
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setLocalStudent(prev => ({ ...prev, [name]: value === '' ? undefined : value }));
+        if (name === 'totalAttendance') {
+            setLocalStudent(prev => ({ ...prev, [name]: value === '' ? 0 : parseInt(value, 10) }));
+        } else {
+            setLocalStudent(prev => ({ ...prev, [name]: value === '' ? undefined : value }));
+        }
     };
 
     const handleBlur = () => {
@@ -80,6 +84,9 @@ const StudentRow: React.FC<StudentRowProps> = React.memo(({ student, onStudentCh
                     </select>
                 </td>
             )}
+            <td className="p-2 min-w-[100px]">
+                <input type="number" name="totalAttendance" value={localStudent.totalAttendance || ''} onChange={handleChange} onBlur={handleBlur} placeholder="Days" className={commonInputClass} />
+            </td>
             <td className="p-2 min-w-[200px]">
                 <input type="text" name="parentName" value={localStudent.parentName || ''} onChange={handleChange} onBlur={handleBlur} placeholder="Parent's Name" className={commonInputClass} />
             </td>
@@ -119,6 +126,7 @@ interface SetupStepProps {
     onLevelChange: (level: string) => void;
     onArmChange: (arm: string) => void;
     subjects: string[];
+    setSubjects: React.Dispatch<React.SetStateAction<string[]>>;
     students: Student[];
     onAddStudent: () => void;
     onRemoveStudent: (id: string) => void;
@@ -130,15 +138,17 @@ interface SetupStepProps {
     selectedStream: 'All' | 'Science' | 'Art' | 'Commerce';
     onStreamChange: (stream: 'All' | 'Science' | 'Art' | 'Commerce') => void;
     currentUser: User;
+    totalSchoolDays: number;
 }
 
 const SetupStep: React.FC<SetupStepProps> = ({
     levels, arms, selectedLevel, selectedArm, onLevelChange, onArmChange,
-    subjects,
+    subjects, setSubjects,
     students, onAddStudent, onRemoveStudent, onStudentChange,
     feeItems, setFeeItems,
     selectedSection, onSectionChange, selectedStream, onStreamChange,
-    currentUser
+    currentUser,
+    totalSchoolDays
 }) => {
     const [studentToRemove, setStudentToRemove] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
@@ -192,6 +202,11 @@ const SetupStep: React.FC<SetupStepProps> = ({
                         className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
                     />
                 </div>
+                {totalSchoolDays > 0 && (
+                     <div className="text-sm text-slate-500 font-medium bg-white px-3 py-2 rounded border">
+                        Total School Days: <span className="font-bold text-slate-800">{totalSchoolDays}</span>
+                     </div>
+                )}
             </div>
 
             <div className="overflow-x-auto">
@@ -202,6 +217,7 @@ const SetupStep: React.FC<SetupStepProps> = ({
                             <th className="p-3 text-left font-semibold">Admission No.</th>
                             <th className="p-3 text-left font-semibold">Gender</th>
                             {isSeniorClass && <th className="p-3 text-left font-semibold">Stream</th>}
+                            <th className="p-3 text-left font-semibold">Attendance</th>
                             <th className="p-3 text-left font-semibold">Parent's Name</th>
                             <th className="p-3 text-center font-semibold">Photo</th>
                             <th className="p-3 text-center font-semibold">Actions</th>
@@ -220,7 +236,7 @@ const SetupStep: React.FC<SetupStepProps> = ({
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={isSeniorClass ? 7 : 6} className="text-center py-10 text-slate-500">
+                                <td colSpan={isSeniorClass ? 8 : 7} className="text-center py-10 text-slate-500">
                                     No students in this class yet, or none match your search.
                                 </td>
                             </tr>
@@ -235,7 +251,10 @@ const SetupStep: React.FC<SetupStepProps> = ({
             </div>
         </Card>
         
-        <FeeStructureManager feeItems={feeItems} setFeeItems={setFeeItems} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <SubjectsManager subjects={subjects} setSubjects={setSubjects} />
+            <FeeStructureManager feeItems={feeItems} setFeeItems={setFeeItems} />
+        </div>
       </div>
        <ConfirmationDialog
             isOpen={!!studentToRemove}

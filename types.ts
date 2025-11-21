@@ -1,4 +1,5 @@
 
+
 export type ScorePart = number | 'ABS' | null;
 
 export interface ScoreBreakdown {
@@ -77,12 +78,14 @@ export interface School {
   address: string;
   contactInfo: string;
   logo: string;
+  principalSignature?: string; // Added signature field
   status: 'active' | 'suspended';
   subscriptionExpiry?: string;
   dateRegistered: string;
 }
 
 export interface ReportCardTemplateSettings {
+  reportTitle: string; // New field for custom report title
   fontFamily: 'Arial' | 'Times New Roman' | 'Verdana';
   showGradeAnalysis: boolean;
   showQRCode: boolean;

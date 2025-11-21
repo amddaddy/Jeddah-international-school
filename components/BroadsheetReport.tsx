@@ -1,3 +1,4 @@
+
 import React, { forwardRef, useMemo } from 'react';
 import { Student, Result, BroadsheetTemplateSettings } from '../types';
 import { getScoreTotal, getGradeInfo, getSubjectsForStudent, SUBJECT_ABBREVIATIONS, generateQrCodeUrl } from '../utils';
@@ -22,7 +23,7 @@ const BroadsheetReport = forwardRef<HTMLDivElement, BroadsheetReportProps>(({ st
             const scores = students
                 .filter(s => {
                     if (!isSeniorClass) return true;
-                    return getSubjectsForStudent(s, 'Senior').includes(subject);
+                    return getSubjectsForStudent(s, 'Senior', subjects).includes(subject);
                 })
                 .map(s => getScoreTotal(s.scores[subject]))
                 .filter(score => score !== null) as number[];
@@ -74,7 +75,7 @@ const BroadsheetReport = forwardRef<HTMLDivElement, BroadsheetReportProps>(({ st
         return results.some(result => {
             const student = students.find(s => s.id === result.studentId);
             if (!student) return false;
-            return getSubjectsForStudent(student, isSeniorClass ? 'Senior' : 'Junior').includes(subject);
+            return getSubjectsForStudent(student, isSeniorClass ? 'Senior' : 'Junior', subjects).includes(subject);
         });
     });
 
@@ -105,7 +106,7 @@ const BroadsheetReport = forwardRef<HTMLDivElement, BroadsheetReportProps>(({ st
                         <tbody>
                             {results.map((result, index) => {
                                 const student = students.find(s => s.id === result.studentId);
-                                const studentSubjects = student ? getSubjectsForStudent(student, isSeniorClass ? 'Senior' : 'Junior') : [];
+                                const studentSubjects = student ? getSubjectsForStudent(student, isSeniorClass ? 'Senior' : 'Junior', subjects) : [];
                                 return (
                                     <tr key={result.studentId} className="even:bg-slate-50">
                                         <td className="p-1.5 border border-black text-center">{index + 1}</td>

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Student } from '../types';
 import Card from './Card';
@@ -31,7 +32,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, subjects, classInfo, on
         }
     
         const studentAverages = students.map(student => {
-            const studentSubjects = getSubjectsForStudent(student, isSenior ? 'Senior' : 'Junior');
+            const studentSubjects = getSubjectsForStudent(student, isSenior ? 'Senior' : 'Junior', subjects);
             if (studentSubjects.length === 0) return 0;
 
             const totalScore = studentSubjects.reduce((acc, subject) => acc + getScoreTotal(student.scores[subject]), 0);
@@ -45,7 +46,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, subjects, classInfo, on
         const totalBilled = students.reduce((sum, s) => sum + (s.payments?.reduce((pSum, p) => pSum + p.totalBill, 0) || 0), 0);
         
         return { totalStudents, classAverage, totalPayments, totalBilled };
-    }, [students, classInfo.level]);
+    }, [students, classInfo.level, subjects]);
     
     const handleDraftAnnouncement = async () => {
         if (!announcementPrompt.trim()) return;

@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 import { TemplateSettings, ReportCardTemplateSettings } from '../types';
 import Card from './Card';
@@ -8,9 +10,17 @@ interface TemplatesStepProps {
   setSettings: React.Dispatch<React.SetStateAction<TemplateSettings>>;
   logo: string;
   onLogoChange: (logo: string) => void;
+  signature: string;
+  onSignatureChange: (signature: string) => void;
+  sessionData: {
+    session: string; setSession: (v: string) => void;
+    term: string; setTerm: (v: string) => void;
+    totalDays: string; setTotalDays: (v: string) => void;
+    nextTerm: string; setNextTerm: (v: string) => void;
+  }
 }
 
-const TemplatesStep: React.FC<TemplatesStepProps> = ({ settings, setSettings, logo, onLogoChange }) => {
+const TemplatesStep: React.FC<TemplatesStepProps> = ({ settings, setSettings, logo, onLogoChange, signature, onSignatureChange, sessionData }) => {
   const handleReportCardChange = <K extends keyof ReportCardTemplateSettings>(
     field: K,
     value: ReportCardTemplateSettings[K]
@@ -50,28 +60,117 @@ const TemplatesStep: React.FC<TemplatesStepProps> = ({ settings, setSettings, lo
   const handleResetLogo = () => {
       onLogoChange(SCHOOL_LOGO_BASE64);
   }
+
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            if (event.target?.result) {
+                onSignatureChange(event.target.result as string);
+            }
+        };
+        reader.readAsDataURL(e.target.files[0]);
+    }
+  };
+
+  const handleResetSignature = () => {
+      onSignatureChange('');
+  }
   
   const commonInputClass = "w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500";
   const checkboxClass = "h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500";
 
   return (
     <div className="space-y-8">
+      <Card title="Academic Session Settings">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Current Session</label>
+                <input 
+                    type="text" 
+                    value={sessionData.session} 
+                    onChange={e => sessionData.setSession(e.target.value)} 
+                    placeholder="e.g., 2024/2025"
+                    className={commonInputClass} 
+                />
+             </div>
+             <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Current Term</label>
+                <select 
+                    value={sessionData.term} 
+                    onChange={e => sessionData.setTerm(e.target.value)} 
+                    className={commonInputClass}
+                >
+                    <option value="First Term">First Term</option>
+                    <option value="Second Term">Second Term</option>
+                    <option value="Third Term">Third Term</option>
+                </select>
+             </div>
+             <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Total Days School Opened</label>
+                <input 
+                    type="number" 
+                    value={sessionData.totalDays} 
+                    onChange={e => sessionData.setTotalDays(e.target.value)} 
+                    placeholder="e.g., 120"
+                    className={commonInputClass} 
+                />
+             </div>
+             <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Next Term Begins</label>
+                <input 
+                    type="date" 
+                    value={sessionData.nextTerm} 
+                    onChange={e => sessionData.setNextTerm(e.target.value)} 
+                    className={commonInputClass} 
+                />
+             </div>
+          </div>
+      </Card>
+
       <Card title="School Branding">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
-              <div className="shrink-0">
-                   <img className="h-24 w-24 object-contain border rounded-md bg-slate-50" src={logo} alt="Current Logo" />
-              </div>
-              <div>
-                  <label className="block text-sm font-medium text-slate-700">School Logo</label>
-                  <div className="mt-1 flex items-center space-x-4">
-                       <label htmlFor="logo-upload" className="cursor-pointer py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
-                          Change Logo
-                          <input id="logo-upload" type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-                       </label>
-                       <button type="button" onClick={handleResetLogo} className="text-sm text-red-600 hover:text-red-800">Reset to Default</button>
-                  </div>
-                   <p className="mt-2 text-xs text-slate-500">This logo will appear on all generated reports, invoices, and receipts. Recommended: Square aspect ratio, Transparent background.</p>
-              </div>
+          <div className="space-y-6">
+            {/* School Logo Section */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6 pb-6 border-b border-slate-200">
+                <div className="shrink-0">
+                    <img className="h-24 w-24 object-contain border rounded-md bg-slate-50" src={logo} alt="Current Logo" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700">School Logo</label>
+                    <div className="mt-1 flex items-center space-x-4">
+                        <label htmlFor="logo-upload" className="cursor-pointer py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+                            Change Logo
+                            <input id="logo-upload" type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                        </label>
+                        <button type="button" onClick={handleResetLogo} className="text-sm text-red-600 hover:text-red-800">Reset to Default</button>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">This logo will appear on all generated reports, invoices, and receipts. Recommended: Square aspect ratio, Transparent background.</p>
+                </div>
+            </div>
+
+            {/* Principal Signature Section */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
+                 <div className="shrink-0 flex items-center justify-center h-24 w-48 border rounded-md bg-slate-50">
+                    {signature ? (
+                         <img className="h-20 w-44 object-contain" src={signature} alt="Principal Signature" />
+                    ) : (
+                        <span className="text-slate-400 text-sm italic">No Signature</span>
+                    )}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700">Principal's Signature</label>
+                    <div className="mt-1 flex items-center space-x-4">
+                        <label htmlFor="signature-upload" className="cursor-pointer py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+                            Upload Signature
+                            <input id="signature-upload" type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} />
+                        </label>
+                        {signature && (
+                             <button type="button" onClick={handleResetSignature} className="text-sm text-red-600 hover:text-red-800">Remove</button>
+                        )}
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">Upload an image of the Principal's signature to be automatically applied to report cards. Recommended: White/Transparent background.</p>
+                </div>
+            </div>
           </div>
       </Card>
 
@@ -89,6 +188,10 @@ const TemplatesStep: React.FC<TemplatesStepProps> = ({ settings, setSettings, lo
             <div>
               <label htmlFor="contactInfo" className="block text-sm font-medium text-slate-700 mb-1">Contact Information</label>
               <input id="contactInfo" type="text" value={settings.reportCard.contactInfo} onChange={e => handleReportCardChange('contactInfo', e.target.value)} className={commonInputClass} />
+            </div>
+             <div>
+              <label htmlFor="reportTitle" className="block text-sm font-medium text-slate-700 mb-1">Report Title</label>
+              <input id="reportTitle" type="text" value={settings.reportCard.reportTitle} onChange={e => handleReportCardChange('reportTitle', e.target.value)} className={commonInputClass} placeholder="e.g. STUDENT'S REPORT SHEET" />
             </div>
              <div>
               <label htmlFor="fontFamily" className="block text-sm font-medium text-slate-700 mb-1">Font Family</label>

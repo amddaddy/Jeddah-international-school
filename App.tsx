@@ -172,12 +172,12 @@ const App: React.FC = () => {
         return false;
     };
 
-    const handleRegisterSchool = (schoolName: string, email: string, pass: string) => {
+    const handleRegisterSchool = (schoolName: string, address: string, schoolEmail: string, phone: string, email: string, pass: string) => {
         if (allUsers.some(u => u.email === email)) {
-            alert("This email is already registered.");
+            alert("This admin email is already registered.");
             return false;
         }
-        if (schools.some(s => s.email === email)) {
+        if (schools.some(s => s.email === schoolEmail)) {
              alert("This school email is already registered.");
              return false;
         }
@@ -186,9 +186,9 @@ const App: React.FC = () => {
         const newSchool: School = {
             id: newSchoolId,
             name: schoolName,
-            email: email,
-            address: 'Address Not Set',
-            contactInfo: email,
+            email: schoolEmail,
+            address: address,
+            contactInfo: phone,
             logo: SCHOOL_LOGO_BASE64,
             status: 'active',
             dateRegistered: new Date().toISOString()
@@ -259,7 +259,21 @@ const App: React.FC = () => {
     }, [studentsForClass, selectedStream]);
 
     const sectionName = useMemo(() => validLevel.startsWith('JSS') ? 'Junior Secondary School' : 'Senior Secondary School', [validLevel]);
-    const subjectsForClass = useMemo(() => selectedSection === 'Junior' ? JUNIOR_SUBJECTS : ALL_SENIOR_SUBJECTS, [selectedSection]);
+    
+    // --- SUBJECT MANAGEMENT ---
+    const [juniorSubjects, setJuniorSubjects] = useState(JUNIOR_SUBJECTS);
+    const [seniorSubjects, setSeniorSubjects] = useState(ALL_SENIOR_SUBJECTS);
+    
+    const subjectsForClass = useMemo(() => selectedSection === 'Junior' ? juniorSubjects : seniorSubjects, [selectedSection, juniorSubjects, seniorSubjects]);
+
+    const handleSetSubjects = (newSubjects: string[] | ((prev: string[]) => string[])) => {
+        if (selectedSection === 'Junior') {
+            // If newSubjects is a function, call it with current state, otherwise use value
+             setJuniorSubjects(prev => typeof newSubjects === 'function' ? newSubjects(prev) : newSubjects);
+        } else {
+             setSeniorSubjects(prev => typeof newSubjects === 'function' ? newSubjects(prev) : newSubjects);
+        }
+    };
 
     // --- DATA MUTATION HANDLERS (Wrapped to update global state) ---
     const handleAddStudent = useCallback(() => {
@@ -300,12 +314,18 @@ const App: React.FC = () => {
             setSchools(prev => prev.map(s => s.id === currentSchool.id ? { ...s, logo: newLogo } : s));
         }
     };
+    
+    const handleSignatureChange = (newSignature: string) => {
+        if (currentSchool) {
+             setSchools(prev => prev.map(s => s.id === currentSchool.id ? { ...s, principalSignature: newSignature } : s));
+        }
+    };
 
     // --- TEMPLATE SETTINGS ---
     // In a real app, these would be stored in the School object or separate table.
     // For now, we retain local state but initialized from defaults.
     const [templateUiSettings, setTemplateUiSettings] = useState({
-        reportCard: { fontFamily: 'Arial' as any, showGradeAnalysis: true, showQRCode: true, showClassPosition: true, showPromotionStatus: true },
+        reportCard: { reportTitle: "STUDENT'S REPORT SHEET", fontFamily: 'Arial' as any, showGradeAnalysis: true, showQRCode: true, showClassPosition: true, showPromotionStatus: true },
         subjectWise: { showSummary: true, showPerformanceIndicators: true, showPerformanceBar: true },
         broadsheet: { showSubjectAverage: true, showHighestScore: true, showLowestScore: true }
     });
@@ -347,14 +367,14 @@ const App: React.FC = () => {
     // --- GENERATION HANDLERS ---
      const calculateResults = useCallback((studentData: Student[]): Result[] => {
         const studentTotals = studentData.map(student => {
-            const studentSubjects = getSubjectsForStudent(student, selectedSection);
+            const studentSubjects = getSubjectsForStudent(student, selectedSection, subjectsForClass);
             const total = studentSubjects.reduce((acc, subject) => acc + getScoreTotal(student.scores[subject]), 0);
             const average = studentSubjects.length > 0 ? total / studentSubjects.length : 0;
             return { studentId: student.id, name: student.name, total, average, stream: student.stream };
         });
         studentTotals.sort((a, b) => b.total - a.total);
         return studentTotals.map((res, idx) => ({ ...res, position: idx + 1 }));
-    }, [selectedSection]);
+    }, [selectedSection, subjectsForClass]);
 
     const handleGenerateAIRemarks = useCallback(async () => {
         if (!currentUser || !currentSchool) return;
@@ -452,6 +472,7 @@ const App: React.FC = () => {
                 totalSchoolDays={totalSchoolDays}
                 templateSettings={templateSettings.reportCard}
                 logo={currentSchool?.logo || SCHOOL_LOGO_BASE64}
+                principalSignature={currentSchool?.principalSignature}
             />,
             orientation: 'p'
         });
@@ -622,22 +643,6 @@ const App: React.FC = () => {
         return <LoginPage onLogin={handleLogin} onRegister={handleRegisterSchool} logo={SCHOOL_LOGO_BASE64} />;
     }
 
-    // Developer Admin View
-    if (currentUser.role === 'dev_admin') {
-        return (
-            <div className="min-h-screen bg-slate-100">
-                <Header schoolName="Platform Administration" currentUser={currentUser} onLogout={handleLogout} logo={SCHOOL_LOGO_BASE64} />
-                <main className="container mx-auto p-6">
-                    <DevSchoolManager 
-                        schools={schools} 
-                        onToggleStatus={handleToggleSchoolStatus} 
-                        onDeleteSchool={handleDeleteSchool} 
-                    />
-                </main>
-            </div>
-        );
-    }
-
     // School Admin / Teacher View
     const renderStep = () => {
         const props = {
@@ -659,8 +664,8 @@ const App: React.FC = () => {
 
         switch (currentStep) {
             case 'dashboard': return <Dashboard {...props} subjects={subjectsForClass} onNavigate={setCurrentStep as any} />;
-            case 'setup': return <SetupStep {...props} subjects={subjectsForClass} onAddStudent={handleAddStudent} onRemoveStudent={handleRemoveStudent} feeItems={feeItems} setFeeItems={setFeeItems} />;
-            case 'scores': return <ScoreEntryStep {...props} subjects={subjectsForClass} selectedSubject={selectedSubjectForEntry} onSelectSubject={setSelectedSubjectForEntry} />;
+            case 'setup': return <SetupStep {...props} subjects={subjectsForClass} setSubjects={handleSetSubjects} onAddStudent={handleAddStudent} onRemoveStudent={handleRemoveStudent} feeItems={feeItems} setFeeItems={setFeeItems} totalSchoolDays={parseInt(totalSchoolDays) || 0} />;
+            case 'scores': return <ScoreEntryStep {...props} subjects={subjectsForClass} selectedSubject={selectedSubjectForEntry} onSelectSubject={setSelectedSubjectForEntry} totalSchoolDays={parseInt(totalSchoolDays) || 0} />;
             case 'invoicing': return <InvoicingStep {...props} onGenerateInvoice={handleGenerateInvoice} onPrintInvoice={handlePrintInvoice} isGeneratingInvoice={isGeneratingInvoice} />;
             case 'payments': return <PaymentsStep {...props} onAddPayment={handleAddPayment} onPrintReceipt={handlePrintReceipt} isGeneratingReceipt={isGeneratingReceipt} />;
             case 'finalize': return <FinalizeStep 
@@ -674,9 +679,23 @@ const App: React.FC = () => {
                         handleGenerateBroadsheet, isGeneratingBroadsheet
                     }} 
                 />;
-            case 'templates': return <TemplatesStep settings={{ reportCard: templateSettings.reportCard, subjectWise: templateUiSettings.subjectWise, broadsheet: templateUiSettings.broadsheet }} setSettings={setTemplateUiSettings as any} logo={currentSchool?.logo || ''} onLogoChange={handleLogoChange} />;
+            case 'templates': return <TemplatesStep 
+                settings={{ reportCard: templateSettings.reportCard, subjectWise: templateUiSettings.subjectWise, broadsheet: templateUiSettings.broadsheet }} 
+                setSettings={setTemplateUiSettings as any} 
+                logo={currentSchool?.logo || ''} 
+                onLogoChange={handleLogoChange}
+                signature={currentSchool?.principalSignature || ''}
+                onSignatureChange={handleSignatureChange}
+                sessionData={{
+                    session, setSession,
+                    term, setTerm,
+                    totalDays: totalSchoolDays, setTotalDays: setTotalSchoolDays,
+                    nextTerm: nextTermBegins, setNextTerm: setNextTermBegins
+                }}
+            />;
             case 'guide': return <SystemGuide />;
             case 'access_control': return <AccessControlStep currentUser={currentUser} />;
+            case 'dev_admin_tools': return <DevSchoolManager schools={schools} onToggleStatus={handleToggleSchoolStatus} onDeleteSchool={handleDeleteSchool} />;
             default: return null;
         }
     };
