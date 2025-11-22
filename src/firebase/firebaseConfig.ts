@@ -5,8 +5,8 @@ import { getAuth } from "firebase/auth";
 import { getFunctions } from "firebase/functions";
 import { getStorage } from "firebase/storage";
 
-// Safe access to environment variables that works in Vite, Create React App, and Node
-const getEnv = (key: string) => {
+// Helper to safely access environment variables in various environments (Vite, Node, etc.)
+const getEnv = (key: string): string => {
     let value = undefined;
 
     // 1. Try Vite (import.meta.env)
@@ -31,7 +31,7 @@ const getEnv = (key: string) => {
         }
     }
 
-    return value;
+    return value || "";
 };
 
 const firebaseConfig = {
