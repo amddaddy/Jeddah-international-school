@@ -13,6 +13,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ schoolName, currentUser, onLogout, logo }) => {
   const roleDisplay: Record<User['role'], string> = {
+      super_admin: 'Super Admin',
       dev_admin: 'Developer Admin',
       admin: 'Administrator',
       teacher: 'Teacher'

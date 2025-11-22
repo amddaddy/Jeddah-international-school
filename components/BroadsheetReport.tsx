@@ -6,6 +6,7 @@ import { getScoreTotal, getGradeInfo, getSubjectsForStudent, SUBJECT_ABBREVIATIO
 interface BroadsheetReportProps {
     students: Student[];
     subjects: string[];
+    subjectStreamMap: Record<string, string>;
     results: Result[];
     classInfo: { level: string; arm: string; session:string; term: string };
     aiAnalysis: string;
@@ -13,7 +14,7 @@ interface BroadsheetReportProps {
     schoolName: string;
 }
 
-const BroadsheetReport = forwardRef<HTMLDivElement, BroadsheetReportProps>(({ students, subjects, results, classInfo, aiAnalysis, templateSettings, schoolName }, ref) => {
+const BroadsheetReport = forwardRef<HTMLDivElement, BroadsheetReportProps>(({ students, subjects, subjectStreamMap, results, classInfo, aiAnalysis, templateSettings, schoolName }, ref) => {
     
     const isSeniorClass = classInfo.level.startsWith('SS');
 
@@ -23,7 +24,7 @@ const BroadsheetReport = forwardRef<HTMLDivElement, BroadsheetReportProps>(({ st
             const scores = students
                 .filter(s => {
                     if (!isSeniorClass) return true;
-                    return getSubjectsForStudent(s, 'Senior', subjects).includes(subject);
+                    return getSubjectsForStudent(s, 'Senior', subjects, subjectStreamMap).includes(subject);
                 })
                 .map(s => getScoreTotal(s.scores[subject]))
                 .filter(score => score !== null) as number[];
@@ -39,7 +40,7 @@ const BroadsheetReport = forwardRef<HTMLDivElement, BroadsheetReportProps>(({ st
             }
         });
         return stats;
-    }, [students, subjects, isSeniorClass]);
+    }, [students, subjects, isSeniorClass, subjectStreamMap]);
 
     const summaryStats = useMemo(() => {
         const totalStudents = results.length;
@@ -75,7 +76,7 @@ const BroadsheetReport = forwardRef<HTMLDivElement, BroadsheetReportProps>(({ st
         return results.some(result => {
             const student = students.find(s => s.id === result.studentId);
             if (!student) return false;
-            return getSubjectsForStudent(student, isSeniorClass ? 'Senior' : 'Junior', subjects).includes(subject);
+            return getSubjectsForStudent(student, isSeniorClass ? 'Senior' : 'Junior', subjects, subjectStreamMap).includes(subject);
         });
     });
 
@@ -106,7 +107,7 @@ const BroadsheetReport = forwardRef<HTMLDivElement, BroadsheetReportProps>(({ st
                         <tbody>
                             {results.map((result, index) => {
                                 const student = students.find(s => s.id === result.studentId);
-                                const studentSubjects = student ? getSubjectsForStudent(student, isSeniorClass ? 'Senior' : 'Junior', subjects) : [];
+                                const studentSubjects = student ? getSubjectsForStudent(student, isSeniorClass ? 'Senior' : 'Junior', subjects, subjectStreamMap) : [];
                                 return (
                                     <tr key={result.studentId} className="even:bg-slate-50">
                                         <td className="p-1.5 border border-black text-center">{index + 1}</td>

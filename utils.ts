@@ -5,6 +5,8 @@ import { ScoreBreakdown, Student } from './types';
 
 // --- SUBJECT MANAGEMENT ---
 
+export const NURSERY_SUBJECTS = ['Numeracy', 'Literacy', 'Rhymes', 'Creative Arts', 'Health Habits', 'Science', 'Social Habits'];
+export const PRIMARY_SUBJECTS = ['Mathematics', 'English Language', 'Basic Science', 'Social Studies', 'Civic Education', 'Cultural and Creative Arts', 'CRS', 'PHE', 'ICT', 'Verbal Reasoning', 'Quantitative Reasoning'];
 export const JUNIOR_SUBJECTS = ['English Studies', 'Mathematics', 'Basic Science', 'Basic Technology', 'Computer Studies', 'PHE', 'Social Studies', 'Civic Education', 'Security Education', 'Agricultural Science', 'Home Economics', 'Business Studies', 'Keyboarding', 'CCA', 'History', 'CRS'];
 
 export const SENIOR_CORE_SUBJECTS = ['English Language', 'Mathematics', 'Civic Education', 'Computer Studies'];
@@ -14,15 +16,22 @@ export const COMMERCE_SUBJECTS = ['Economics', 'Accounting', 'Commerce', 'Office
 
 export const ALL_SENIOR_SUBJECTS = [...new Set([...SENIOR_CORE_SUBJECTS, ...SCIENCE_SUBJECTS, ...ART_SUBJECTS, ...COMMERCE_SUBJECTS])];
 
-export const getSubjectsForStudent = (student: Student, section: 'Junior' | 'Senior', availableSubjects: string[] = []): string[] => {
+export const getSubjectsForStudent = (
+    student: Student, 
+    section: 'Nursery' | 'Primary' | 'Junior' | 'Senior', 
+    availableSubjects: string[] = [], 
+    subjectStreamMap: Record<string, string> = {}
+): string[] => {
     // If no dynamic list provided, fall back to default constants (legacy behavior)
     if (availableSubjects.length === 0) {
+        if (section === 'Nursery') return NURSERY_SUBJECTS;
+        if (section === 'Primary') return PRIMARY_SUBJECTS;
         if (section === 'Junior') return JUNIOR_SUBJECTS;
         availableSubjects = ALL_SENIOR_SUBJECTS;
     }
 
-    if (section === 'Junior') {
-        // For Junior, we assume they take all available subjects registered for the class
+    if (section !== 'Senior') {
+        // For Nursery, Primary, and Junior, we assume they take all available subjects registered for the class
         return availableSubjects;
     }
 
@@ -30,16 +39,23 @@ export const getSubjectsForStudent = (student: Student, section: 'Junior' | 'Sen
     const studentStream = student.stream;
     
     return availableSubjects.filter(subject => {
+        // 0. Check dynamic stream map first (User defined override)
+        const mapStream = subjectStreamMap[subject];
+        if (mapStream) {
+             if (mapStream === 'General') return true; // Available to all
+             return mapStream === studentStream; // Specific match
+        }
+
         // 1. Always include Core subjects if they are in the available list
         if (SENIOR_CORE_SUBJECTS.includes(subject)) return true;
         
-        // 2. Include subjects specific to the student's stream
+        // 2. Include subjects specific to the student's stream (Defaults)
         if (studentStream === 'Science' && SCIENCE_SUBJECTS.includes(subject)) return true;
         if (studentStream === 'Art' && ART_SUBJECTS.includes(subject)) return true;
         if (studentStream === 'Commerce' && COMMERCE_SUBJECTS.includes(subject)) return true;
         
-        // 3. Include custom subjects (those not in the default ALL list)
-        // We treat custom subjects as "General" or "Elective" available to all streams
+        // 3. Include custom subjects (those not in the default ALL list and not mapped)
+        // We treat custom subjects as "General" or "Elective" available to all streams by default
         if (!ALL_SENIOR_SUBJECTS.includes(subject)) return true;
         
         // 4. If student has no stream, they only get Core + Custom
@@ -57,6 +73,8 @@ export const SUBJECT_ABBREVIATIONS: Record<string, string> = {
     'English Language': 'ENG', 'Physics': 'PHY', 'Chemistry': 'CHE', 'Biology': 'BIO',
     'Further Mathematics': 'F-MAT', 'Literature in English': 'LIT', 'Government': 'GOV',
     'Economics': 'ECO', 'Accounting': 'ACC', 'Commerce': 'COM', 'Office Practice': 'O-PRAC',
+    'Numeracy': 'NUM', 'Literacy': 'LIT', 'Rhymes': 'RHY', 'Creative Arts': 'ART', 'Health Habits': 'HLT',
+    'Social Habits': 'SOC', 'Verbal Reasoning': 'VR', 'Quantitative Reasoning': 'QR'
 };
 
 // --- SCORE & GRADE CALCULATIONS ---

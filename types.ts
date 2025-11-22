@@ -1,5 +1,3 @@
-
-
 export type ScorePart = number | 'ABS' | null;
 
 export interface ScoreBreakdown {
@@ -43,8 +41,8 @@ export type Rating = 'A' | 'B' | 'C' | 'D' | 'E' | '';
 
 export interface Student {
   id:string;
-  schoolId: string; // Link student to a specific school
-  classId: string; // e.g., "SS 1-A"
+  schoolId: string;
+  classId: string;
   name: string;
   admissionNo?: string;
   gender?: 'Male' | 'Female' | '';
@@ -71,42 +69,46 @@ export interface Result {
   stream?: 'Science' | 'Art' | 'Commerce';
 }
 
+export type SchoolType = 'primary' | 'secondary';
+
 export interface School {
   id: string;
   name: string;
-  email: string; // Contact email for the school
+  subdomain: string; // The key identifier for multi-tenancy (e.g., "jeddah")
+  email: string;
   address: string;
   contactInfo: string;
   logo: string;
-  principalSignature?: string; // Added signature field
+  principalSignature?: string;
   status: 'active' | 'suspended';
   subscriptionExpiry?: string;
+  studentLimit: number;
   dateRegistered: string;
+  type: SchoolType;
 }
 
 export interface ReportCardTemplateSettings {
-  reportTitle: string; // New field for custom report title
+  schoolName: string;
+  schoolAddress: string;
+  contactInfo: string;
+  reportTitle: string;
   fontFamily: 'Arial' | 'Times New Roman' | 'Verdana';
   showGradeAnalysis: boolean;
   showQRCode: boolean;
   showClassPosition: boolean;
   showPromotionStatus: boolean;
-  // These overrides are now derived from the School object, but kept for template specific tweaks if needed
-  schoolName?: string; 
-  schoolAddress?: string;
-  contactInfo?: string;
 }
 
 export interface SubjectReportTemplateSettings {
-  showSummary: boolean;
-  showPerformanceIndicators: boolean;
-  showPerformanceBar: boolean;
+    showSummary: boolean;
+    showPerformanceIndicators: boolean;
+    showPerformanceBar: boolean;
 }
 
 export interface BroadsheetTemplateSettings {
-  showSubjectAverage: boolean;
-  showHighestScore: boolean;
-  showLowestScore: boolean;
+    showSubjectAverage: boolean;
+    showHighestScore: boolean;
+    showLowestScore: boolean;
 }
 
 export interface TemplateSettings {
@@ -115,12 +117,12 @@ export interface TemplateSettings {
   broadsheet: BroadsheetTemplateSettings;
 }
 
-// --- AUTHENTICATION & USER MANAGEMENT ---
+export type Role = 'super_admin' | 'dev_admin' | 'admin' | 'teacher';
 
-export type Role = 'dev_admin' | 'admin' | 'teacher';
-
+// Permission types remain the same...
 export type Permission =
   | 'manage_students'
+  | 'manage_staff'
   | 'manage_subjects'
   | 'manage_fees'
   | 'enter_scores'
@@ -137,10 +139,14 @@ export type Permissions = Record<Permission, boolean>;
 
 export interface User {
   id: string;
-  schoolId: string; // Link user to a school. 'global' for dev_admin.
+  schoolId: string; // "global" for super_admin
   name: string;
   email: string;
-  password?: string; 
   role: Role;
   permissions: Permissions;
+  assignedClass?: {
+      level: string;
+      arm: string;
+  };
+  assignedSubjects?: string[];
 }

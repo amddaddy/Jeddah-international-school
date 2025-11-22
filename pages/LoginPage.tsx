@@ -1,216 +1,146 @@
-
 import React, { useState } from 'react';
 import SpinnerIcon from '../components/icons/SpinnerIcon';
-import { Role } from '../types';
-import { SCHOOL_LOGO_BASE64 } from '../components/assets';
+import { School, Permissions } from '../types';
+import { auth, db } from '../firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { ALL_PERMISSIONS } from '../components/AccessControlStep';
 
 interface LoginPageProps {
-  onLogin: (email: string, pass: string) => boolean;
-  onRegister: (schoolName: string, address: string, schoolEmail: string, phone: string, email: string, pass: string) => boolean;
-  logo?: string;
+  isSuperAdmin: boolean;
+  school: School | null;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onRegister, logo }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ isSuperAdmin, school }) => {
   const [isRegistering, setIsRegistering] = useState(false);
-  
-  // School Details
-  const [schoolName, setSchoolName] = useState('');
-  const [address, setAddress] = useState('');
-  const [schoolEmail, setSchoolEmail] = useState('');
-  const [phone, setPhone] = useState('');
-
-  // Admin Credentials
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
-  const [error, setError] = useState('');
+  const [name, setName] = useState(''); // New state for name
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const displayLogo = logo || SCHOOL_LOGO_BASE64;
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setIsLoading(true);
+    setError('');
 
-    // Simulate network delay
-    setTimeout(() => {
-      let success = false;
-      if (isRegistering) {
-          success = onRegister(schoolName, address, schoolEmail, phone, email, password);
+    try {
+      if (isRegistering && isSuperAdmin) {
+        // --- REGISTRATION LOGIC (Super Admin Only) ---
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Grant all permissions to Super Admin
+        const fullPermissions = ALL_PERMISSIONS.reduce((acc, p) => {
+            acc[p.id] = true;
+            return acc;
+        }, {} as Permissions);
+
+        // Create User Profile in Firestore
+        await setDoc(doc(db, 'users', user.uid), {
+            id: user.uid,
+            name: name,
+            email: email,
+            role: 'super_admin',
+            schoolId: 'global', // Distinct ID for super admins
+            permissions: fullPermissions
+        });
+
       } else {
-          success = onLogin(email, password);
+        // --- LOGIN LOGIC ---
+        await signInWithEmailAndPassword(auth, email, password);
+        // AuthProvider will detect the change and handle redirection/context updates
       }
-
-      if (!success) {
-        setError(isRegistering ? 'Registration failed. Email might be in use.' : 'Invalid email or password, or account suspended.');
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/invalid-credential') {
+          setError("Invalid email or password.");
+      } else if (err.code === 'auth/email-already-in-use') {
+          setError("This email is already registered.");
+      } else if (err.code === 'permission-denied') {
+          setError("Permission denied. Check database rules.");
+      } else {
+          setError("Authentication failed. Please try again.");
       }
       setIsLoading(false);
-    }, 1000);
+    }
   };
-  
-  const toggleMode = () => {
-      setIsRegistering(!isRegistering);
-      setError('');
-      setEmail('');
-      setPassword('');
-      setSchoolName('');
-      setAddress('');
-      setSchoolEmail('');
-      setPhone('');
-  }
+
+  const title = isSuperAdmin ? "Insight Edu Super Admin" : school?.name || "Insight Edu";
+  const logo = school?.logo;
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
-          <div className="px-8 py-10 md:px-10">
-            <div className="text-center mb-6">
-              <img src={displayLogo} alt="Logo" className="h-20 w-20 mx-auto mb-4 object-contain" />
-              <h1 className="text-3xl font-bold text-slate-800">Insight Edu</h1>
-              <p className="text-slate-500 mt-1">{isRegistering ? 'Register Your School' : 'School Management Portal'}</p>
+      <div className="w-full max-w-md bg-white rounded-xl shadow-2xl p-8">
+        <div className="text-center mb-6">
+          {logo && <img src={logo} alt="Logo" className="h-20 w-20 mx-auto mb-4 object-contain" />}
+          <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
+          <p className="text-slate-500">
+             {isRegistering ? 'Create New Account' : (isSuperAdmin ? 'Platform Management' : 'Staff Portal')}
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+            {isRegistering && (
+                <div>
+                    <label className="block text-sm font-medium text-slate-700">Full Name</label>
+                    <input 
+                        type="text" 
+                        value={name} 
+                        onChange={e => setName(e.target.value)} 
+                        className="w-full px-3 py-2 border rounded-md" 
+                        required 
+                        placeholder="e.g. System Administrator"
+                    />
+                </div>
+            )}
+            <div>
+                <label className="block text-sm font-medium text-slate-700">Email</label>
+                <input 
+                    type="email" 
+                    value={email} 
+                    onChange={e => setEmail(e.target.value)} 
+                    className="w-full px-3 py-2 border rounded-md" 
+                    required 
+                    placeholder="name@example.com"
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-slate-700">Password</label>
+                <input 
+                    type="password" 
+                    value={password} 
+                    onChange={e => setPassword(e.target.value)} 
+                    className="w-full px-3 py-2 border rounded-md" 
+                    required 
+                    placeholder="••••••••"
+                    minLength={6}
+                />
             </div>
             
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {isRegistering && (
-                <>
-                    <div>
-                        <label htmlFor="schoolName" className="block text-sm font-medium text-slate-700 mb-1">
-                        School Name
-                        </label>
-                        <input
-                        id="schoolName"
-                        name="schoolName"
-                        type="text"
-                        required={isRegistering}
-                        value={schoolName}
-                        onChange={(e) => setSchoolName(e.target.value)}
-                        placeholder="e.g., Spring Valley High"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="address" className="block text-sm font-medium text-slate-700 mb-1">
-                        School Address
-                        </label>
-                        <textarea
-                        id="address"
-                        name="address"
-                        required={isRegistering}
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        placeholder="Full physical address"
-                        rows={2}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="schoolEmail" className="block text-sm font-medium text-slate-700 mb-1">
-                        School Official Email
-                        </label>
-                        <input
-                        id="schoolEmail"
-                        name="schoolEmail"
-                        type="email"
-                        required={isRegistering}
-                        value={schoolEmail}
-                        onChange={(e) => setSchoolEmail(e.target.value)}
-                        placeholder="info@school.com"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-1">
-                        Mobile Number(s)
-                        </label>
-                        <input
-                        id="phone"
-                        name="phone"
-                        type="text"
-                        required={isRegistering}
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="+123 456 7890"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                        />
-                    </div>
-                    <div className="border-t border-slate-200 pt-4 mt-4">
-                        <h3 className="text-sm font-bold text-slate-700 mb-2">Administrator Account</h3>
-                    </div>
-                </>
-              )}
+            {error && <p className="text-red-600 text-sm">{error}</p>}
 
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
-                  {isRegistering ? 'Admin Login Email' : 'Email Address'}
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="password"  className="block text-sm font-medium text-slate-700 mb-1">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                />
-              </div>
-              
-              {isRegistering && (
-                  <p className="text-xs text-slate-500">
-                      By registering, a new School Administrator account will be created linked to the school details above.
-                  </p>
-              )}
+            <button disabled={isLoading} className="w-full bg-sky-600 text-white py-2 rounded-md hover:bg-sky-700 flex justify-center font-semibold transition-colors">
+                {isLoading ? <SpinnerIcon /> : (isRegistering ? 'Create Account' : 'Login')}
+            </button>
+        </form>
 
-              {error && (
-                <div className="bg-red-50 text-red-700 p-3 rounded-md text-sm">
-                  {error}
-                </div>
-              )}
-
-              <div>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:bg-slate-400 disabled:cursor-not-allowed"
+        {isSuperAdmin && (
+            <div className="mt-6 text-center pt-4 border-t border-slate-100">
+                <button 
+                    onClick={() => {
+                        setIsRegistering(!isRegistering);
+                        setError('');
+                        setName('');
+                        setEmail('');
+                        setPassword('');
+                    }}
+                    className="text-sm text-sky-600 hover:text-sky-800 hover:underline"
                 >
-                  {isLoading ? (
-                    <>
-                      <SpinnerIcon className="mr-2" />
-                      {isRegistering ? 'Registering School...' : 'Signing in...'}
-                    </>
-                  ) : (isRegistering ? 'Register School' : 'Sign In')}
+                    {isRegistering ? "Back to Login" : "Create Super Admin Account"}
                 </button>
-              </div>
-              
-              <div className="text-center mt-4">
-                  <button 
-                    type="button"
-                    onClick={toggleMode}
-                    className="text-sm text-sky-600 hover:text-sky-800"
-                  >
-                      {isRegistering ? 'Already have an account? Sign In' : "Register a new School"}
-                  </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            </div>
+        )}
       </div>
     </div>
   );

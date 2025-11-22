@@ -1,7 +1,8 @@
+
 import React, { useMemo } from 'react';
 import { User } from '../types';
 
-type Step = 'dashboard' | 'setup' | 'templates' | 'scores' | 'invoicing' | 'payments' | 'finalize' | 'guide' | 'access_control' | 'dev_admin_tools';
+type Step = 'dashboard' | 'setup' | 'staff' | 'templates' | 'scores' | 'invoicing' | 'payments' | 'finalize' | 'guide' | 'access_control' | 'dev_admin_tools';
 
 interface WorkflowTabsProps {
   currentStep: Step;
@@ -13,7 +14,8 @@ const WorkflowTabs: React.FC<WorkflowTabsProps> = ({ currentStep, setCurrentStep
 
   const allTabs = useMemo(() => [
     { id: 'dashboard', name: 'Dashboard', permission: 'view_dashboard' },
-    { id: 'setup', name: 'Setup', permission: 'manage_students' },
+    { id: 'setup', name: 'Students', permission: 'manage_students' },
+    { id: 'staff', name: 'Staff', permission: 'manage_staff' },
     { id: 'templates', name: 'Templates', permission: 'customize_templates' },
     { id: 'scores', name: 'Scores', permission: 'enter_scores' },
     { id: 'invoicing', name: 'Invoicing', permission: 'generate_invoices' },

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Student, ScorePart, ScoreBreakdown } from '../types';
 import Card from './Card';
@@ -20,6 +21,31 @@ const formatScoreDisplay = (score: ScorePart) => {
     if (score === null) return '-';
     return String(score);
 }
+
+// OPTIMIZATION: Custom equality check for the huge table. 
+// We only re-render a row if the specific student's data has changed.
+const areFinalizeRowsEqual = (prevProps: FinalizeRowProps, nextProps: FinalizeRowProps) => {
+    // Check if it's the same student ID
+    if (prevProps.student.id !== nextProps.student.id) return false;
+    
+    // Check if attendance changed
+    if (prevProps.student.totalAttendance !== nextProps.student.totalAttendance) return false;
+    
+    // Check if remark changed
+    if (prevProps.student.remark !== nextProps.student.remark) return false;
+    
+    // Check if photo changed
+    if (prevProps.student.photo !== nextProps.student.photo) return false;
+
+    // Check if scores object reference changed. 
+    // Since 'scores' is replaced on update, reference check is fast and accurate enough for "did anything in scores change?"
+    if (prevProps.student.scores !== nextProps.student.scores) return false;
+    
+    // Check if subjects list changed (rare)
+    if (prevProps.subjects !== nextProps.subjects) return false;
+
+    return true;
+};
 
 const FinalizeRow: React.FC<FinalizeRowProps> = React.memo(({ student, subjects, onStudentChange }) => {
     const [localAttendance, setLocalAttendance] = useState(student.totalAttendance);
@@ -93,7 +119,7 @@ const FinalizeRow: React.FC<FinalizeRowProps> = React.memo(({ student, subjects,
             </td>
         </tr>
     );
-});
+}, areFinalizeRowsEqual);
 
 
 interface FinalizeStepProps {

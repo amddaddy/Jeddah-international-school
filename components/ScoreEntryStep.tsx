@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
-import { Student, ScorePart, ScoreBreakdown } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Student, ScorePart, ScoreBreakdown, User } from '../types';
 import Card from './Card';
+import ClassSelector from './ClassSelector';
 import { getSubjectsForStudent } from '../utils';
 
 interface ScoreEntryRowProps {
@@ -13,23 +14,28 @@ interface ScoreEntryRowProps {
 
 const ScoreEntryRow: React.FC<ScoreEntryRowProps> = React.memo(({ student, subject, onStudentChange, isSubjectApplicable }) => {
     
-    const currentScores = student.scores[subject] || { firstCA: null, secondCA: null, exam: null };
+    // OPTIMIZATION: Isolate the specific subject scores.
+    // We use this specific object as the dependency for the useEffect below.
+    // This prevents re-renders if 'student.scores' changes reference but this specific subject didn't change.
+    const subjectScores = student.scores[subject];
+
     const [localScores, setLocalScores] = useState({
-        firstCA: currentScores.firstCA === null ? '' : String(currentScores.firstCA),
-        secondCA: currentScores.secondCA === null ? '' : String(currentScores.secondCA),
-        exam: currentScores.exam === null ? '' : String(currentScores.exam),
+        firstCA: subjectScores?.firstCA === null || subjectScores?.firstCA === undefined ? '' : String(subjectScores.firstCA),
+        secondCA: subjectScores?.secondCA === null || subjectScores?.secondCA === undefined ? '' : String(subjectScores.secondCA),
+        exam: subjectScores?.exam === null || subjectScores?.exam === undefined ? '' : String(subjectScores.exam),
     });
 
     const [errors, setErrors] = useState({ firstCA: false, secondCA: false, exam: false });
 
+    // OPTIMIZATION: Only sync state if the SPECIFIC subject scores change from the parent.
     useEffect(() => {
         setLocalScores({
-            firstCA: currentScores.firstCA === null ? '' : String(currentScores.firstCA),
-            secondCA: currentScores.secondCA === null ? '' : String(currentScores.secondCA),
-            exam: currentScores.exam === null ? '' : String(currentScores.exam),
+            firstCA: subjectScores?.firstCA === null || subjectScores?.firstCA === undefined ? '' : String(subjectScores.firstCA),
+            secondCA: subjectScores?.secondCA === null || subjectScores?.secondCA === undefined ? '' : String(subjectScores.secondCA),
+            exam: subjectScores?.exam === null || subjectScores?.exam === undefined ? '' : String(subjectScores.exam),
         });
         setErrors({ firstCA: false, secondCA: false, exam: false });
-    }, [student.scores, subject]);
+    }, [subjectScores]);
 
     const validateScore = (part: keyof ScoreBreakdown, value: string): boolean => {
         const upperValue = value.trim().toUpperCase();
@@ -37,16 +43,12 @@ const ScoreEntryRow: React.FC<ScoreEntryRowProps> = React.memo(({ student, subje
             return true;
         }
 
-        // Regex to check if it's a non-negative integer string
         if (!/^\d+$/.test(value.trim())) {
             return false;
         }
         
         const num = parseInt(value.trim(), 10);
-        
-        if (isNaN(num)) { // Should be redundant due to regex, but safe
-            return false;
-        }
+        if (isNaN(num)) return false;
 
         if (part === 'firstCA' || part === 'secondCA') {
             return num <= 20;
@@ -56,7 +58,7 @@ const ScoreEntryRow: React.FC<ScoreEntryRowProps> = React.memo(({ student, subje
             return num <= 60;
         }
 
-        return false; // Should not happen with valid parts
+        return false;
     };
 
     const handleLocalChange = (part: keyof ScoreBreakdown, value: string) => {
@@ -71,15 +73,20 @@ const ScoreEntryRow: React.FC<ScoreEntryRowProps> = React.memo(({ student, subje
         setErrors(prev => ({ ...prev, [part]: !isValid }));
 
         if (isValid) {
-            const newScores = { ...student.scores };
-            const subjectScores = newScores[subject] || { firstCA: null, secondCA: null, exam: null };
+            // Deep check to avoid triggering parent update if value hasn't actually changed numerically
             const trimmedValue = value.trim();
             const upperValue = trimmedValue.toUpperCase();
             const numericValue = upperValue === 'ABS' ? 'ABS' : (trimmedValue === '' ? null : parseInt(trimmedValue, 10));
             
-            if(subjectScores[part] !== numericValue) {
-                subjectScores[part] = numericValue;
-                newScores[subject] = subjectScores;
+            const currentPartValue = subjectScores?.[part] ?? null;
+
+            if (currentPartValue !== numericValue) {
+                const newScores = { ...student.scores };
+                const newSubjectScores = { ...(newScores[subject] || { firstCA: null, secondCA: null, exam: null }) };
+                
+                newSubjectScores[part] = numericValue;
+                newScores[subject] = newSubjectScores;
+                
                 onStudentChange({ ...student, scores: newScores });
             }
         }
@@ -130,7 +137,7 @@ const ScoreEntryRow: React.FC<ScoreEntryRowProps> = React.memo(({ student, subje
             </td>
         </tr>
     );
-});
+}); // End React.memo
 
 interface AttendanceEntryRowProps {
     student: Student;
@@ -190,108 +197,156 @@ const AttendanceEntryRow: React.FC<AttendanceEntryRowProps> = React.memo(({ stud
 interface ScoreEntryStepProps {
     students: Student[];
     subjects: string[];
+    subjectStreamMap: Record<string, string>;
     selectedSubject: string | null;
     onSelectSubject: (subject: string | null) => void;
     onStudentChange: (student: Student) => void;
     classInfo: { level: string; arm: string };
-    selectedSection: 'Junior' | 'Senior';
+    selectedSection: 'Nursery' | 'Primary' | 'Junior' | 'Senior';
     totalSchoolDays: number;
+    currentUser: User;
+    levels: string[];
+    arms: string[];
+    selectedLevel: string;
+    selectedArm: string;
+    onLevelChange: (level: string) => void;
+    onArmChange: (arm: string) => void;
+    onSectionChange: (section: 'Nursery' | 'Primary' | 'Junior' | 'Senior') => void;
+    selectedStream: 'All' | 'Science' | 'Art' | 'Commerce';
+    onStreamChange: (stream: 'All' | 'Science' | 'Art' | 'Commerce') => void;
+    allowedSections: string[];
 }
 
 const ScoreEntryStep: React.FC<ScoreEntryStepProps> = ({
-    students, subjects, selectedSubject, onSelectSubject, onStudentChange, classInfo, selectedSection, totalSchoolDays
+    students, subjects, subjectStreamMap, selectedSubject, onSelectSubject, onStudentChange, classInfo, selectedSection, totalSchoolDays, currentUser,
+    levels, arms, selectedLevel, selectedArm, onLevelChange, onArmChange, onSectionChange, selectedStream, onStreamChange, allowedSections
 }) => {
     
-    if (subjects.length === 0) {
-        return (
-             <Card title="Enter Subject Scores">
-                <p className="text-slate-600">Please add subjects in the 'Setup' tab before entering scores.</p>
-            </Card>
-        )
-    }
+    const canRegisterAttendance = currentUser.role === 'admin' || currentUser.role === 'dev_admin' || (currentUser.role === 'teacher' && !!currentUser.assignedClass);
 
-    const isAttendanceMode = selectedSubject === 'ATTENDANCE_REGISTRY';
-
+    // Prepare props for ScoreEntryRow outside the map to ensure referential stability where possible
+    // Though standard props here are mostly primitives or stable functions
+    
     return (
-        <Card title={isAttendanceMode ? `Register Attendance for ${classInfo.level} ${classInfo.arm}` : `Enter Scores for ${classInfo.level} ${classInfo.arm}`}>
-            <div className="mb-6">
-                <label htmlFor="subject-select" className="block text-sm font-medium text-slate-700 mb-1">
-                    Select Subject or Activity:
-                </label>
-                <select
-                    id="subject-select"
-                    value={selectedSubject || ''}
-                    onChange={(e) => onSelectSubject(e.target.value)}
-                    className="w-full md:w-1/2 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 font-medium text-slate-700"
-                >
-                    <option value="">-- Select Subject --</option>
-                    <optgroup label="Administrative">
-                        <option value="ATTENDANCE_REGISTRY">📝 Register Attendance</option>
-                    </optgroup>
-                    <optgroup label="Subjects">
-                        {subjects.map(subject => (
-                            <option key={subject} value={subject}>{subject}</option>
-                        ))}
-                    </optgroup>
-                </select>
-            </div>
+        <div className="space-y-6">
+             <ClassSelector
+                levels={levels}
+                arms={arms}
+                selectedLevel={selectedLevel}
+                selectedArm={selectedArm}
+                onLevelChange={onLevelChange}
+                onArmChange={onArmChange}
+                selectedSection={selectedSection}
+                onSectionChange={onSectionChange}
+                selectedStream={selectedStream}
+                onStreamChange={onStreamChange}
+                currentUser={currentUser}
+                allowedSections={allowedSections}
+            />
+        
+            <Card title={selectedSubject === 'ATTENDANCE_REGISTRY' ? `Register Attendance` : `Enter Scores`}>
+                {subjects.length === 0 ? (
+                     <div className="text-center py-8">
+                        <p className="text-slate-600 mb-2">
+                            {currentUser.role === 'teacher' 
+                                ? "No assigned subjects found for this class." 
+                                : "No subjects have been added for this class yet."}
+                        </p>
+                        {currentUser.role === 'teacher' && (
+                            <p className="text-xs text-slate-500">Switch to a different class above if you teach subjects elsewhere.</p>
+                        )}
+                    </div>
+                ) : (
+                    <>
+                        <div className="mb-6">
+                            <label htmlFor="subject-select" className="block text-sm font-medium text-slate-700 mb-1">
+                                Select Subject or Activity:
+                            </label>
+                            <select
+                                id="subject-select"
+                                value={selectedSubject || ''}
+                                onChange={(e) => onSelectSubject(e.target.value)}
+                                className="w-full md:w-1/2 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 font-medium text-slate-700"
+                            >
+                                <option value="">-- Select Subject --</option>
+                                {canRegisterAttendance && (
+                                    <optgroup label="Administrative">
+                                        <option value="ATTENDANCE_REGISTRY">📝 Register Attendance</option>
+                                    </optgroup>
+                                )}
+                                <optgroup label="Subjects">
+                                    {subjects.map(subject => (
+                                        <option key={subject} value={subject}>{subject}</option>
+                                    ))}
+                                </optgroup>
+                            </select>
+                        </div>
 
-            {isAttendanceMode ? (
-                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-100 text-slate-600">
-                            <tr>
-                                <th className="p-3 text-left font-semibold w-1/2">Student Name</th>
-                                <th className="p-3 text-center font-semibold">Days Present (Out of {totalSchoolDays})</th>
-                                <th className="p-3 text-center font-semibold">Percentage</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {students.map(student => (
-                                <AttendanceEntryRow
-                                    key={student.id}
-                                    student={student}
-                                    totalSchoolDays={totalSchoolDays}
-                                    onStudentChange={onStudentChange}
-                                />
-                            ))}
-                        </tbody>
-                    </table>
-                 </div>
-            ) : selectedSubject ? (
-                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-100 text-slate-600">
-                            <tr>
-                                <th className="p-3 text-left font-semibold">Student Name</th>
-                                <th className="p-3 text-center font-semibold">1st CA (20)</th>
-                                <th className="p-3 text-center font-semibold">2nd CA (20)</th>
-                                <th className="p-3 text-center font-semibold">Exam (60)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {students.map(student => {
-                                const studentSubjects = getSubjectsForStudent(student, selectedSection, subjects);
-                                const isSubjectApplicable = studentSubjects.includes(selectedSubject);
-                                return (
-                                    <ScoreEntryRow
-                                        key={student.id}
-                                        student={student}
-                                        subject={selectedSubject}
-                                        onStudentChange={onStudentChange}
-                                        isSubjectApplicable={isSubjectApplicable}
-                                    />
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                 </div>
-            ) : (
-                <div className="text-center py-12 text-slate-500 italic">
-                    Select a subject or 'Register Attendance' from the dropdown above to begin.
-                </div>
-            )}
-        </Card>
+                        {selectedSubject === 'ATTENDANCE_REGISTRY' ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-100 text-slate-600">
+                                        <tr>
+                                            <th className="p-3 text-left font-semibold w-1/2">Student Name</th>
+                                            <th className="p-3 text-center font-semibold">Days Present (Out of {totalSchoolDays})</th>
+                                            <th className="p-3 text-center font-semibold">Percentage</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {students.length > 0 ? students.map(student => (
+                                            <AttendanceEntryRow
+                                                key={student.id}
+                                                student={student}
+                                                totalSchoolDays={totalSchoolDays}
+                                                onStudentChange={onStudentChange}
+                                            />
+                                        )) : (
+                                            <tr><td colSpan={3} className="text-center py-4 text-slate-500">No students found in this class.</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : selectedSubject ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-100 text-slate-600">
+                                        <tr>
+                                            <th className="p-3 text-left font-semibold">Student Name</th>
+                                            <th className="p-3 text-center font-semibold">1st CA (20)</th>
+                                            <th className="p-3 text-center font-semibold">2nd CA (20)</th>
+                                            <th className="p-3 text-center font-semibold">Exam (60)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {students.length > 0 ? students.map(student => {
+                                            // Calculate subject applicability once here to pass down
+                                            const studentSubjects = getSubjectsForStudent(student, selectedSection, subjects, subjectStreamMap);
+                                            const isSubjectApplicable = studentSubjects.includes(selectedSubject);
+                                            
+                                            return (
+                                                <ScoreEntryRow
+                                                    key={student.id}
+                                                    student={student}
+                                                    subject={selectedSubject}
+                                                    onStudentChange={onStudentChange}
+                                                    isSubjectApplicable={isSubjectApplicable}
+                                                />
+                                            );
+                                        }) : (
+                                            <tr><td colSpan={4} className="text-center py-4 text-slate-500">No students found in this class.</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 text-slate-500 italic">
+                                Select a subject or 'Register Attendance' from the dropdown above to begin.
+                            </div>
+                        )}
+                    </>
+                )}
+            </Card>
+        </div>
     );
 };
 

@@ -9,6 +9,7 @@ interface ResultsDisplayProps {
   results: Result[];
   studentData: Student[];
   allSubjects: string[];
+  subjectStreamMap: Record<string, string>;
   classInfo: { level: string; arm: string; term: string; session: string; section: string };
   nextTermBegins: string;
   principalRemark: string;
@@ -23,7 +24,7 @@ const getGradeColor = (grade: string) => {
     return 'text-slate-800 font-bold'; 
 };
 
-const ResultsDisplay = forwardRef<HTMLDivElement, ResultsDisplayProps>(({ results, studentData, allSubjects, classInfo, nextTermBegins, principalRemark, totalSchoolDays, templateSettings, logo, principalSignature }, ref) => {
+const ResultsDisplay = forwardRef<HTMLDivElement, ResultsDisplayProps>(({ results, studentData, allSubjects, subjectStreamMap, classInfo, nextTermBegins, principalRemark, totalSchoolDays, templateSettings, logo, principalSignature }, ref) => {
 
     if (results.length === 0) return null;
 
@@ -34,7 +35,7 @@ const ResultsDisplay = forwardRef<HTMLDivElement, ResultsDisplayProps>(({ result
                 if (!student) return null;
 
                 const promotionStatus = result.average >= 40 ? 'Promoted' : 'To Repeat';
-                const studentSubjects = getSubjectsForStudent(student, classInfo.section.startsWith('Junior') ? 'Junior' : 'Senior', allSubjects);
+                const studentSubjects = getSubjectsForStudent(student, classInfo.section.startsWith('Junior') ? 'Junior' : 'Senior', allSubjects, subjectStreamMap);
                 
                 const qrCodeUrl = generateQrCodeUrl({
                     docType: 'Report Card',

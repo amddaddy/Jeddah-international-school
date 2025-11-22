@@ -23,19 +23,26 @@ const StudentRow: React.FC<StudentRowProps> = React.memo(({ student, onStudentCh
     const commonInputClass = "w-full px-2 py-1.5 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent";
 
     useEffect(() => {
-        setLocalStudent(student);
+        if (student !== localStudent) {
+             setLocalStudent(student);
+        }
     }, [student]);
+
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
+        let updatedValue: any = value;
         if (name === 'totalAttendance') {
-            setLocalStudent(prev => ({ ...prev, [name]: value === '' ? 0 : parseInt(value, 10) }));
-        } else {
-            setLocalStudent(prev => ({ ...prev, [name]: value === '' ? undefined : value }));
+            updatedValue = value === '' ? 0 : parseInt(value, 10);
+        } else if (value === '') {
+            updatedValue = undefined;
         }
+
+        setLocalStudent(prev => ({ ...prev, [name]: updatedValue }));
     };
 
     const handleBlur = () => {
+        // Only trigger update if something actually changed to avoid unnecessary re-renders
         if (JSON.stringify(localStudent) !== JSON.stringify(student)) {
             onStudentChange(localStudent);
         }
@@ -127,32 +134,39 @@ interface SetupStepProps {
     onArmChange: (arm: string) => void;
     subjects: string[];
     setSubjects: React.Dispatch<React.SetStateAction<string[]>>;
+    onAddGlobalSubject: (name: string, category: 'Nursery' | 'Primary' | 'Junior' | 'Senior' | 'All', stream?: 'General' | 'Science' | 'Art' | 'Commerce') => void;
     students: Student[];
     onAddStudent: () => void;
     onRemoveStudent: (id: string) => void;
     onStudentChange: (student: Student) => void;
     feeItems: FeeItem[];
     setFeeItems: React.Dispatch<React.SetStateAction<FeeItem[]>>;
-    selectedSection: 'Junior' | 'Senior';
-    onSectionChange: (section: 'Junior' | 'Senior') => void;
+    selectedSection: 'Nursery' | 'Primary' | 'Junior' | 'Senior';
+    onSectionChange: (section: 'Nursery' | 'Primary' | 'Junior' | 'Senior') => void;
     selectedStream: 'All' | 'Science' | 'Art' | 'Commerce';
     onStreamChange: (stream: 'All' | 'Science' | 'Art' | 'Commerce') => void;
     currentUser: User;
     totalSchoolDays: number;
+    allowedSections: string[];
 }
 
 const SetupStep: React.FC<SetupStepProps> = ({
     levels, arms, selectedLevel, selectedArm, onLevelChange, onArmChange,
-    subjects, setSubjects,
+    subjects, setSubjects, onAddGlobalSubject,
     students, onAddStudent, onRemoveStudent, onStudentChange,
     feeItems, setFeeItems,
     selectedSection, onSectionChange, selectedStream, onStreamChange,
     currentUser,
-    totalSchoolDays
+    totalSchoolDays,
+    allowedSections
 }) => {
     const [studentToRemove, setStudentToRemove] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const isSeniorClass = selectedSection === 'Senior';
+
+    // Permission Checks
+    const canManageSubjects = currentUser.permissions.manage_subjects;
+    const canManageFees = currentUser.permissions.manage_fees;
 
     const handleRequestRemove = useCallback((id: string) => {
         setStudentToRemove(id);
@@ -188,6 +202,8 @@ const SetupStep: React.FC<SetupStepProps> = ({
             onSectionChange={onSectionChange}
             selectedStream={selectedStream}
             onStreamChange={onStreamChange}
+            currentUser={currentUser}
+            allowedSections={allowedSections}
         />
         <Card title="Student Roster">
             <div className="mb-4 p-4 bg-slate-50 rounded-lg border flex flex-col md:flex-row gap-4 items-center">
@@ -251,10 +267,16 @@ const SetupStep: React.FC<SetupStepProps> = ({
             </div>
         </Card>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <SubjectsManager subjects={subjects} setSubjects={setSubjects} />
-            <FeeStructureManager feeItems={feeItems} setFeeItems={setFeeItems} />
-        </div>
+        {(canManageSubjects || canManageFees) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {canManageSubjects && (
+                    <SubjectsManager subjects={subjects} setSubjects={setSubjects} onAddSubject={onAddGlobalSubject} />
+                )}
+                {canManageFees && (
+                    <FeeStructureManager feeItems={feeItems} setFeeItems={setFeeItems} />
+                )}
+            </div>
+        )}
       </div>
        <ConfirmationDialog
             isOpen={!!studentToRemove}

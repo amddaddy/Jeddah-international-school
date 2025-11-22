@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { User, Permission } from '../types';
 import Card from './Card';
@@ -9,6 +10,7 @@ import UserGroupIcon from './icons/UserGroupIcon';
 export const ALL_PERMISSIONS: { id: Permission; name: string; description: string }[] = [
     { id: 'view_dashboard', name: 'View Dashboard', description: 'Can see the main dashboard with stats and actions.' },
     { id: 'manage_students', name: 'Manage Students', description: 'Can add, edit, and remove students from the roster.' },
+    { id: 'manage_staff', name: 'Manage Staff', description: 'Can add and remove teachers.' },
     { id: 'manage_subjects', name: 'Manage Subjects', description: 'Can add and remove subjects for the school.' },
     { id: 'manage_fees', name: 'Manage Fees', description: 'Can set and update the school fee structure.' },
     { id: 'enter_scores', name: 'Enter Scores', description: 'Can input and modify student scores for tests and exams.' },
